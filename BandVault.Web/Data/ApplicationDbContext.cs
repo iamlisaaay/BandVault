@@ -31,7 +31,12 @@ namespace BandVault.Web.Data
             modelBuilder.Entity<Order>()
                 .Property(o => o.TotalAmount)
                 .HasColumnType("decimal(18,2)");
-
+            // Додаємо базові музичні жанри
+            modelBuilder.Entity<Genre>().HasData(
+                new Genre { Id = 1, Name = "Visual Kei" },
+                new Genre { Id = 2, Name = "J-Rock" },
+                new Genre { Id = 3, Name = "Symphonic Metal" }
+            );
             modelBuilder.Entity<OrderItem>()
                 .Property(oi => oi.UnitPrice)
                 .HasColumnType("decimal(18,2)");
