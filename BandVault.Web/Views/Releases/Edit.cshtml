@@ -1,46 +1,48 @@
 ﻿@model BandVault.Web.Models.Release
 
 <div class="container my-5">
-    <h2 class="text-light">Редагувати реліз</h2>
-    <hr class="border-secondary" />
+    <h3 class="section-title">Редагувати реліз</h3>
 
     <form asp-action="Edit" enctype="multipart/form-data" class="mt-4" style="max-width: 600px;">
         <input type="hidden" asp-for="Id" />
-        <!-- Зберігаємо старе посилання на картинку -->
         <input type="hidden" asp-for="CoverImageUrl" />
 
-        <div class="mb-3">
-            <label asp-for="Title" class="form-label text-white">Назва альбому</label>
-            <input asp-for="Title" class="form-control bg-dark text-white border-secondary" required />
-        </div>
-
-        <div class="mb-3">
-            <label asp-for="Description" class="form-label text-white">Опис</label>
-            <textarea asp-for="Description" class="form-control bg-dark text-white border-secondary" rows="3"></textarea>
-        </div>
-
-        <div class="mb-3">
-            <label asp-for="ReleaseDate" class="form-label text-white">Дата релізу</label>
-            <!-- Форматуємо дату для правильного відображення в інпуті -->
-            <input asp-for="ReleaseDate" type="date" value="@Model.ReleaseDate.ToString("yyyy-MM-dd")" class="form-control bg-dark text-white border-secondary" required />
-        </div>
-
-        <div class="mb-3">
-            <label asp-for="GenreId" class="form-label text-white">Жанр</label>
-            <select asp-for="GenreId" class="form-select bg-dark text-white border-secondary" asp-items="ViewBag.Genres"></select>
+        <div class="mb-4">
+            <label asp-for="Title" class="form-label meta-text">Назва альбому</label>
+            <input asp-for="Title" class="form-control form-control-dark rounded-0" required />
         </div>
 
         <div class="mb-4">
-            <label class="form-label text-white d-block">Обкладинка</label>
-            @if (!string.IsNullOrEmpty(Model.CoverImageUrl))
-            {
-                <img src="@Model.CoverImageUrl" alt="Current Cover" class="img-thumbnail mb-2 bg-dark border-secondary" style="max-height: 150px;" />
-            }
-            <input type="file" name="coverImage" class="form-control bg-dark text-white border-secondary" accept="image/*" />
-            <small class="text-muted">Залиште пустим, щоб не змінювати поточну обкладинку.</small>
+            <label asp-for="Description" class="form-label meta-text">Опис</label>
+            <textarea asp-for="Description" class="form-control form-control-dark rounded-0" rows="4"></textarea>
         </div>
 
-        <button type="submit" class="btn btn-light">Зберегти зміни</button>
-        <a asp-action="Index" class="btn btn-outline-secondary ms-2">Назад</a>
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <label asp-for="ReleaseDate" class="form-label meta-text">Дата релізу</label>
+                <input asp-for="ReleaseDate" type="date" value="@Model.ReleaseDate.ToString("yyyy-MM-dd")" class="form-control form-control-dark rounded-0" required />
+            </div>
+            <div class="col-md-6">
+                <label asp-for="GenreId" class="form-label meta-text">Жанр</label>
+                <select asp-for="GenreId" class="form-select form-select-dark rounded-0" asp-items="ViewBag.Genres"></select>
+            </div>
+        </div>
+
+        <div class="mb-5 border border-secondary p-3">
+            <label class="form-label meta-text d-block border-bottom border-secondary pb-2">Обкладинка</label>
+            @if (!string.IsNullOrEmpty(Model.CoverImageUrl))
+            {
+                <div class="mb-3">
+                    <img src="@Model.CoverImageUrl" alt="Current Cover" class="border border-secondary" style="max-height: 100px; object-fit: cover;" />
+                </div>
+            }
+            <input type="file" name="coverImage" class="form-control form-control-dark rounded-0" accept="image/*" />
+            <div class="mt-2 meta-text" style="font-size: 0.65rem;">*Залиште пустим, щоб не змінювати поточну обкладинку.</div>
+        </div>
+
+        <div class="d-flex gap-3">
+            <button type="submit" class="btn btn-light px-4 rounded-0 text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;">Зберегти</button>
+            <a asp-action="Index" class="btn btn-outline-secondary px-4 rounded-0 text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Скасувати</a>
+        </div>
     </form>
 </div>

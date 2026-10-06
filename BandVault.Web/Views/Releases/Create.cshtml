@@ -1,36 +1,38 @@
 ﻿@model BandVault.Web.Models.Release
 
 <div class="container my-5">
-    <h2 class="text-light">Додати новий реліз</h2>
-    <hr class="border-secondary" />
+    <h3 class="section-title">Додати новий реліз</h3>
 
     <form asp-action="Create" enctype="multipart/form-data" class="mt-4" style="max-width: 600px;">
-        <div class="mb-3">
-            <label asp-for="Title" class="form-label text-white">Назва альбому</label>
-            <input asp-for="Title" class="form-control bg-dark text-white border-secondary" required />
-        </div>
-
-        <div class="mb-3">
-            <label asp-for="Description" class="form-label text-white">Опис</label>
-            <textarea asp-for="Description" class="form-control bg-dark text-white border-secondary" rows="3"></textarea>
-        </div>
-
-        <div class="mb-3">
-            <label asp-for="ReleaseDate" class="form-label text-white">Дата релізу</label>
-            <input asp-for="ReleaseDate" type="date" class="form-control bg-dark text-white border-secondary" required />
-        </div>
-
-        <div class="mb-3">
-            <label asp-for="GenreId" class="form-label text-white">Жанр</label>
-            <select asp-for="GenreId" class="form-select bg-dark text-white border-secondary" asp-items="ViewBag.Genres"></select>
+        <div class="mb-4">
+            <label asp-for="Title" class="form-label meta-text">Назва альбому</label>
+            <input asp-for="Title" class="form-control form-control-dark rounded-0" required />
         </div>
 
         <div class="mb-4">
-            <label class="form-label text-white">Обкладинка (Зображення)</label>
-            <input type="file" name="coverImage" class="form-control bg-dark text-white border-secondary" accept="image/*" />
+            <label asp-for="Description" class="form-label meta-text">Опис</label>
+            <textarea asp-for="Description" class="form-control form-control-dark rounded-0" rows="4"></textarea>
         </div>
 
-        <button type="submit" class="btn btn-light">Зберегти реліз</button>
-        <a asp-action="Index" class="btn btn-outline-secondary ms-2">Скасувати</a>
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <label asp-for="ReleaseDate" class="form-label meta-text">Дата релізу</label>
+                <input asp-for="ReleaseDate" type="date" class="form-control form-control-dark rounded-0" required />
+            </div>
+            <div class="col-md-6">
+                <label asp-for="GenreId" class="form-label meta-text">Жанр</label>
+                <select asp-for="GenreId" class="form-select form-select-dark rounded-0" asp-items="ViewBag.Genres"></select>
+            </div>
+        </div>
+
+        <div class="mb-5 border border-secondary p-3">
+            <label class="form-label meta-text border-bottom border-secondary pb-2 d-block">Обкладинка (Зображення)</label>
+            <input type="file" name="coverImage" class="form-control form-control-dark rounded-0" accept="image/*" />
+        </div>
+
+        <div class="d-flex gap-3">
+            <button type="submit" class="btn btn-light px-4 rounded-0 text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;">Створити</button>
+            <a asp-action="Index" class="btn btn-outline-secondary px-4 rounded-0 text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Скасувати</a>
+        </div>
     </form>
 </div>

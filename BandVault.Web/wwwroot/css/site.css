@@ -1,44 +1,123 @@
+/* =========================================
+   1. БАЗОВІ НАЛАШТУВАННЯ (BASE)
+   ========================================= */
 html {
-  font-size: 14px;
+    font-size: 14px;
+    position: relative;
+    min-height: 100%;
 }
 
 @media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
-}
-
-html {
-  position: relative;
-  min-height: 100%;
+    html {
+        font-size: 16px;
+    }
 }
 
 body {
-  margin-bottom: 60px;
-}
-
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-  color: var(--bs-secondary-color);
-  text-align: end;
-}
-
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-  text-align: start;
-}
-/* =========================================
-   Глобальний аудіо-плеєр (Turbo + Canvas)
-   ========================================= */
-
-/* Відступ знизу, щоб контент сайту не ховався під плеєром */
-body {
+    /* Темна тема та типографіка */
+    background-color: #000000;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+    /* Відступи для футера та плеєра */
+    margin-bottom: 60px;
     padding-bottom: 80px;
 }
 
-/* Фіксований футер для плеєра */
+
+/* =========================================
+   2. УНІВЕРСАЛЬНІ КОМПОНЕНТИ (UI COMPONENTS)
+   ========================================= */
+
+/* Заголовки блоків (новини, треки, альбоми) */
+.section-title {
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-bottom: 1px solid #333;
+    padding-bottom: 0.75rem;
+    margin-bottom: 2rem;
+    color: #fff;
+}
+
+/* Блок контенту (пост, стаття, опис) */
+.content-post {
+    border-bottom: 1px solid #1a1a1a;
+    padding-bottom: 2.5rem;
+    margin-bottom: 2.5rem;
+}
+
+/* Мета-дані (дата, автор, жанр) */
+.meta-text {
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    color: #888;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+}
+
+/* Збереження форматування тексту (з бази даних) */
+.markdown-content {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+/* Елементи списку з наведенням (треки, артисти) */
+.list-item-hover {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-bottom: 1px solid #1a1a1a;
+    transition: background-color 0.2s;
+}
+
+    .list-item-hover:hover {
+        background-color: #0a0a0a;
+    }
+
+/* Текстові кнопки (напр. "Оновити", "Деталі") */
+.btn-text-muted {
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    color: #666;
+    text-transform: uppercase;
+    background: none;
+    border: none;
+    padding: 0;
+    transition: color 0.2s;
+}
+
+    .btn-text-muted:hover {
+        color: #fff;
+    }
+
+
+/* =========================================
+   3. ПЕРЕВИЗНАЧЕННЯ BOOTSTRAP (OVERRIDES)
+   ========================================= */
+.btn:focus,
+.btn:active:focus,
+.btn-link.nav-link:focus,
+.form-control:focus,
+.form-check-input:focus {
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+.form-floating > .form-control-plaintext::placeholder,
+.form-floating > .form-control::placeholder {
+    color: var(--bs-secondary-color);
+    text-align: end;
+}
+
+.form-floating > .form-control-plaintext:focus::placeholder,
+.form-floating > .form-control:focus::placeholder {
+    text-align: start;
+}
+
+
+/* =========================================
+   4. ГЛОБАЛЬНИЙ АУДІО-ПЛЕЄР (AUDIO PLAYER)
+   ========================================= */
 .global-audio-footer {
     position: fixed;
     bottom: 0;
@@ -71,4 +150,30 @@ audio {
     audio::-webkit-media-controls-current-time-display,
     audio::-webkit-media-controls-time-remaining-display {
         color: #fff;
+    }
+/* Ефект підняття для карток і новин при наведенні */
+.hover-lift {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, border-color 0.2s;
+}
+
+    .hover-lift:hover {
+        transform: translateY(-4px);
+        /* Легка світла тінь для темної теми */
+        box-shadow: 0 8px 16px rgba(255, 255, 255, 0.05) !important;
+        border-color: #555 !important;
+        background-color: #0a0a0a; /* Трохи висвітлюємо фон */
+    }
+
+/* Кастомні поля вводу для форм */
+.form-control-dark, .form-select-dark {
+    background-color: #121212;
+    color: #ffffff;
+    border: 1px solid #333;
+}
+
+    .form-control-dark:focus, .form-select-dark:focus {
+        background-color: #1a1a1a;
+        color: #ffffff;
+        border-color: #666;
+        box-shadow: 0 0 0 0.1rem rgba(255, 255, 255, 0.1);
     }

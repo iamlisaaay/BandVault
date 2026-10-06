@@ -1,80 +1,83 @@
 ﻿@model BandVault.Web.Models.Release
 
 <div class="container my-5">
-    <div class="row">
+    <div class="row g-5">
         <!-- Обкладинка та інфо -->
         <div class="col-md-4 text-center">
             @if (!string.IsNullOrEmpty(Model.CoverImageUrl))
             {
-                <img src="@Model.CoverImageUrl" class="img-fluid rounded shadow-lg border border-dark" alt="@Model.Title" />
+                <img src="@Model.CoverImageUrl" class="img-fluid border border-secondary w-100" style="max-width: 350px;" alt="@Model.Title" />
             }
             else
             {
-                <div class="bg-secondary p-5 rounded text-white">Немає обкладинки</div>
+                <div class="bg-dark border border-secondary d-flex align-items-center justify-content-center" style="height: 350px;">
+                    <span class="meta-text">Немає обкладинки</span>
+                </div>
             }
-            <h2 class="mt-3 text-white">@Model.Title</h2>
-            <p class="text-muted mb-1">Дата релізу: @Model.ReleaseDate.ToShortDateString()</p>
-            <p class="text-muted">Жанр: @Model.Genre?.Name</p>
-            <p class="text-white small text-start mt-3">@Model.Description</p>
+            <h2 class="mt-4 text-white fw-bold text-uppercase" style="letter-spacing: 1px;">@Model.Title</h2>
+            <div class="d-flex justify-content-center gap-3 mt-2">
+                <span class="meta-text">@Model.ReleaseDate.ToShortDateString()</span>
+                <span class="meta-text">|</span>
+                <span class="meta-text">@Model.Genre?.Name</span>
+            </div>
+            <p class="text-light opacity-75 small text-start mt-4 markdown-content">@Model.Description</p>
         </div>
 
         <!-- Трекліст та додавання треків -->
         <div class="col-md-8">
-            <h3 class="border-bottom border-secondary pb-2 text-white">Трекліст</h3>
+            <h3 class="section-title">Трекліст</h3>
             
-            <ul class="list-group list-group-flush mb-4">
+            <div class="d-flex flex-column mb-5">
                 @if (Model.Tracks != null && Model.Tracks.Any())
                 {
                     @foreach (var track in Model.Tracks)
                     {
-                      <li class="list-group-item bg-transparent text-white border-secondary d-flex justify-content-between align-items-center px-0">
-    <span>🎵 @track.Title</span>
-    
-    <div class="d-flex gap-2">
-        <!-- Виклик плеєра -->
-        <button class="btn btn-sm btn-outline-light rounded-pill" 
-                onclick="playTrack('@track.AudioFileUrl', '@track.Title', '@Model.Title', '@Model.CoverImageUrl')">
-            ▶ Слухати
-        </button>
+                        <div class="list-item-hover d-flex justify-content-between align-items-center py-3 px-2">
+                            <span class="text-white">@track.Title</span>
+                            
+                            <div class="d-flex gap-3 align-items-center">
+                                <!-- Виклик плеєра -->
+                               <button class="btn-text-muted" style="font-size: 0.8rem;"
+        onclick="playTrack('@track.AudioFileUrl', '@track.Title', '@Model.Title', '@Model.CoverImageUrl', '/Releases/Details/@Model.Id')">
+    ▶ Слухати
+</button>
 
-        <!-- Кнопка видалення треку -->
-        <form asp-action="DeleteTrack" method="post" class="d-inline" onsubmit="return confirm('Ви впевнені, що хочете видалити цей трек?');">
-            <input type="hidden" name="trackId" value="@track.Id" />
-            <input type="hidden" name="releaseId" value="@Model.Id" />
-            <button type="submit" class="btn btn-sm btn-light rounded-pill">❌</button>
-        </form>
-    </div>
-</li>
+                                <!-- Кнопка видалення треку -->
+                                <form asp-action="DeleteTrack" method="post" class="m-0 p-0" onsubmit="return confirm('Видалити цей трек?');">
+                                    <input type="hidden" name="trackId" value="@track.Id" />
+                                    <input type="hidden" name="releaseId" value="@Model.Id" />
+                                    <button type="submit" class="btn-text-muted text-danger" style="font-size: 0.8rem;">✕</button>
+                                </form>
+                            </div>
+                        </div>
                     }
                 }
                 else
                 {
-                    <li class="list-group-item bg-transparent text-muted px-0">Треків ще немає.</li>
+                    <div class="py-3 px-2 text-secondary meta-text">Треків ще немає.</div>
                 }
-            </ul>
+            </div>
 
             <!-- Форма швидкого додавання MP3 -->
-            <div class="card bg-dark border-secondary mt-5">
-                <div class="card-header border-secondary text-light fw-bold">
-                    + Додати новий трек
-                </div>
-                <div class="card-body">
-                    <form asp-action="AddTrack" enctype="multipart/form-data" class="d-flex align-items-end gap-3">
-                        <input type="hidden" name="releaseId" value="@Model.Id" />
-                        
-                        <div class="flex-grow-1">
-                            <label class="form-label text-white small">Назва треку</label>
-                            <input type="text" name="title" class="form-control form-control-sm bg-dark text-white border-secondary" required />
-                        </div>
-                        
-                        <div class="flex-grow-1">
-                            <label class="form-label text-white small">Аудіофайл (MP3)</label>
-                            <input type="file" name="audioFile" class="form-control form-control-sm bg-dark text-white border-secondary" accept="audio/*" required />
-                        </div>
+            <h4 class="section-title" style="font-size: 0.85rem;">Додати новий трек</h4>
+            <div class="p-4 border border-secondary bg-transparent">
+                <form asp-action="AddTrack" enctype="multipart/form-data" class="row g-3 align-items-end">
+                    <input type="hidden" name="releaseId" value="@Model.Id" />
+                    
+                    <div class="col-md-5">
+                        <label class="form-label meta-text mb-1">Назва треку</label>
+                        <input type="text" name="title" class="form-control form-control-dark rounded-0" required />
+                    </div>
+                    
+                    <div class="col-md-5">
+                        <label class="form-label meta-text mb-1">Аудіофайл (MP3)</label>
+                        <input type="file" name="audioFile" class="form-control form-control-dark rounded-0" accept="audio/*" required />
+                    </div>
 
-                        <button type="submit" class="btn btn-sm btn-light px-4">Завантажити</button>
-                    </form>
-                </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-light w-100 rounded-0 text-uppercase fw-bold" style="font-size: 0.8rem; height: 38px;">Додати</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
