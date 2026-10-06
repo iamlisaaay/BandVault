@@ -1,0 +1,22 @@
+﻿@model BandVault.Web.Models.Release
+
+<div class="container my-5">
+    <h2 class="text-light">Видалення релізу</h2>
+    <h4 class="text-white">Ви впевнені, що хочете видалити цей реліз?</h4>
+    <p class="text-warning">Це призведе до видалення релізу та всіх його треків з бази даних!</p>
+    <hr class="border-secondary" />
+
+    <div class="card bg-dark border-danger text-white mb-4" style="max-width: 500px;">
+        <div class="card-body">
+            <h5 class="card-title text-light">@Model.Title</h5>
+            <p class="card-text mb-1"><strong>Дата:</strong> @Model.ReleaseDate.ToShortDateString()</p>
+            <p class="card-text"><strong>Жанр:</strong> @Model.Genre?.Name</p>
+        </div>
+    </div>
+
+    <form asp-action="Delete">
+        <input type="hidden" asp-for="Id" />
+        <button type="submit" class="btn btn-light">🗑 Так, видалити</button>
+        <a asp-action="Index" class="btn btn-outline-secondary ms-2">Скасувати</a>
+    </form>
+</div>
