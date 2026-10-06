@@ -1,0 +1,5 @@
+$kind: http-request
+description: ""
+url: https://localhost:7219/api/merch
+method: GET
+order: 375219187264446

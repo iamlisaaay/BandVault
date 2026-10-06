@@ -1,0 +1,30 @@
+$kind: http-request
+description: ""
+url: https://localhost:7219/api/merch
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"title\": \"SEVERED HOPES SHATTERED INNOCENCE Tote Bag\",\r
+
+    \  \"description\": \"SEVERED HOPES SHATTERED INNOCENCE Tote Bag\",\r
+
+    \  \"price\": 20.00,\r
+
+    \  \"stockQuantity\": 50,\r
+
+    \  \"imageUrl\": \"https://www.pinterest.com/pin/711639178674429249/\",\r
+
+    \  \"categoryId\": 2\r
+
+    }"
+scripts:
+  - type: afterResponse
+    code: "pm.test(\"Status code is 201 Created\", function () {\r
+
+      \    pm.response.to.have.status(201);\r
+
+      });"
+    language: text/javascript
+order: 1791223521789

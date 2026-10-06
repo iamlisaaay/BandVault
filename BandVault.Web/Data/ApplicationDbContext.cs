@@ -40,7 +40,11 @@ namespace BandVault.Web.Data
             modelBuilder.Entity<OrderItem>()
                 .Property(oi => oi.UnitPrice)
                 .HasColumnType("decimal(18,2)");
-
+            base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<MerchCategory>().HasData(
+                new MerchCategory { Id = 1, Name = "Одяг" },
+                new MerchCategory { Id = 2, Name = "Аксесуари" }
+            );
             modelBuilder.Entity<MerchItem>()
                 .Property(m => m.Price)
                 .HasColumnType("decimal(18,2)");

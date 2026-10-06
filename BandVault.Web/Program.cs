@@ -10,15 +10,18 @@ namespace BandVault.Web
             var builder = WebApplication.CreateBuilder(args);
          
 
-            // ДОДАЙ ОСЬ ЦЕЙ БЛОК: Реєструємо підключення до PostgreSQL
+    
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-            // Далі йде стандартний код, який там вже був
-            builder.Services.AddControllersWithViews();
+
 
             // Add services to the container.
-            builder.Services.AddControllersWithViews();
+            builder.Services.AddControllersWithViews()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
 
             var app = builder.Build();
 
@@ -36,6 +39,7 @@ namespace BandVault.Web
             app.UseAuthorization();
 
             app.MapStaticAssets();
+            app.MapControllers();
             app.MapControllerRoute(
                 name: "default",
                 pattern: "{controller=Home}/{action=Index}/{id?}")

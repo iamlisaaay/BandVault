@@ -1,0 +1,8 @@
+$kind: http-request
+description: ""
+url: https://localhost:7219/api/merch?page=1&pageSize=5
+method: GET
+queryParams:
+  page: "1"
+  pageSize: "5"
+order: 2365469195937137
