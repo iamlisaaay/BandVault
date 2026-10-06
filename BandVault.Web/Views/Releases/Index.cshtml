@@ -1,0 +1,41 @@
+﻿@model IEnumerable<BandVault.Web.Models.Release>
+
+@{
+    ViewData["Title"] = "Дискографія";
+}
+
+<h1>Дискографія</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Додати новий реліз</a>
+</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Обкладинка</th>
+            <th>Назва</th>
+            <th>Жанр</th>
+            <th>Дата релізу</th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>
+                @if (!string.IsNullOrEmpty(item.CoverImageUrl))
+                {
+                    <img src="@item.CoverImageUrl" alt="Cover" style="width: 100px; height: 100px; object-fit: cover;" />
+                }
+                else
+                {
+                    <span>Немає фото</span>
+                }
+            </td>
+            <td>@item.Title</td>
+            <td>@(item.Genre != null ? item.Genre.Name : "Невідомо")</td>
+            <td>@item.ReleaseDate.ToShortDateString()</td>
+        </tr>
+}
+    </tbody>
+</table>
