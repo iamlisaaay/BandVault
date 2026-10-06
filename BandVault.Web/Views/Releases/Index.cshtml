@@ -1,41 +1,58 @@
 ﻿@model IEnumerable<BandVault.Web.Models.Release>
 
-@{
-    ViewData["Title"] = "Дискографія";
-}
+<div class="container my-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-light fw-bold">Каталог релізів</h2>
+        <!-- Кнопка переходу на форму створення -->
+        <a asp-action="Create" class="btn btn-light">➕ Додати реліз</a>
+    </div>
 
-<h1>Дискографія</h1>
+    <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
+        @foreach (var item in Model)
+        {
+            <div class="col">
+                <div class="card h-100 bg-dark border-secondary text-white shadow-sm hover-effect">
+                    <!-- Обкладинка -->
+                    @if (!string.IsNullOrEmpty(item.CoverImageUrl))
+                    {
+                        <img src="@item.CoverImageUrl" class="card-img-top" alt="@item.Title" style="height: 250px; object-fit: cover;">
+                    }
+                    else
+                    {
+                        <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" style="height: 250px;">
+                            <span class="text-white-50">Без обкладинки</span>
+                        </div>
+                    }
+                    
+                    <div class="card-body pb-1">
+                        <h5 class="card-title text-light fw-bold text-truncate" title="@item.Title">@item.Title</h5>
+                        <p class="card-text mb-1"><small class="text-muted">Жанр: @item.Genre?.Name</small></p>
+                        <p class="card-text"><small class="text-muted">Реліз: @item.ReleaseDate.ToShortDateString()</small></p>
+                    </div>
+                    
+                    <div class="card-footer bg-transparent border-0 pt-0 d-flex flex-column gap-2">
+    <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-outline-light w-100 rounded-pill">
+        Відкрити альбом
+    </a>
+    <div class="d-flex gap-2">
+        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary w-50 rounded-pill">Редагувати</a>
+        <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary w-50 rounded-pill">Видалити</a>
+    </div>
+</div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
 
-<p>
-    <a asp-action="Create" class="btn btn-primary">Додати новий реліз</a>
-</p>
-
-<table class="table">
-    <thead>
-        <tr>
-            <th>Обкладинка</th>
-            <th>Назва</th>
-            <th>Жанр</th>
-            <th>Дата релізу</th>
-        </tr>
-    </thead>
-    <tbody>
-@foreach (var item in Model) {
-        <tr>
-            <td>
-                @if (!string.IsNullOrEmpty(item.CoverImageUrl))
-                {
-                    <img src="@item.CoverImageUrl" alt="Cover" style="width: 100px; height: 100px; object-fit: cover;" />
-                }
-                else
-                {
-                    <span>Немає фото</span>
-                }
-            </td>
-            <td>@item.Title</td>
-            <td>@(item.Genre != null ? item.Genre.Name : "Невідомо")</td>
-            <td>@item.ReleaseDate.ToShortDateString()</td>
-        </tr>
-}
-    </tbody>
-</table>
+<!-- Додамо трохи стилів для красивого наведення мишкою -->
+<style>
+    .hover-effect {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .hover-effect:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(212, 212, 212, 0.2) !important;
+        border-color: #D9D9D9 !important;
+    }
+</style>

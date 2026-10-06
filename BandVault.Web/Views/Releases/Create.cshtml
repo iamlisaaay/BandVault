@@ -1,46 +1,36 @@
 ﻿@model BandVault.Web.Models.Release
 
-@{
-    ViewData["Title"] = "Додати реліз";
-}
+<div class="container my-5">
+    <h2 class="text-light">Додати новий реліз</h2>
+    <hr class="border-secondary" />
 
-<h1>Додати новий реліз</h1>
-<hr />
-<div class="row">
-    <div class="col-md-4">
-        <form asp-action="Create" enctype="multipart/form-data">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            
-            <div class="form-group mb-3">
-                <label asp-for="Title" class="control-label">Назва</label>
-                <input asp-for="Title" class="form-control" required />
-            </div>
-            
-            <div class="form-group mb-3">
-                <label asp-for="Description" class="control-label">Опис</label>
-                <textarea asp-for="Description" class="form-control" rows="3"></textarea>
-            </div>
-            
-            <div class="form-group mb-3">
-                <label asp-for="ReleaseDate" class="control-label">Дата релізу</label>
-                <input asp-for="ReleaseDate" class="form-control" type="date" required />
-            </div>
-            
-            <div class="form-group mb-3">
-                <label asp-for="GenreId" class="control-label">Жанр</label>
-                <select asp-for="GenreId" class="form-control" asp-items="ViewBag.GenreId"></select>
-            </div>
-            
-            <!-- Поле для завантаження файлу -->
-            <div class="form-group mb-3">
-                <label class="control-label">Обкладинка (Файл)</label>
-                <input type="file" name="coverImage" class="form-control" accept="image/*" />
-            </div>
-            
-            <div class="form-group">
-                <input type="submit" value="Зберегти" class="btn btn-success" />
-                <a asp-action="Index" class="btn btn-secondary">Назад до списку</a>
-            </div>
-        </form>
-    </div>
+    <form asp-action="Create" enctype="multipart/form-data" class="mt-4" style="max-width: 600px;">
+        <div class="mb-3">
+            <label asp-for="Title" class="form-label text-white">Назва альбому</label>
+            <input asp-for="Title" class="form-control bg-dark text-white border-secondary" required />
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Description" class="form-label text-white">Опис</label>
+            <textarea asp-for="Description" class="form-control bg-dark text-white border-secondary" rows="3"></textarea>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="ReleaseDate" class="form-label text-white">Дата релізу</label>
+            <input asp-for="ReleaseDate" type="date" class="form-control bg-dark text-white border-secondary" required />
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="GenreId" class="form-label text-white">Жанр</label>
+            <select asp-for="GenreId" class="form-select bg-dark text-white border-secondary" asp-items="ViewBag.Genres"></select>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label text-white">Обкладинка (Зображення)</label>
+            <input type="file" name="coverImage" class="form-control bg-dark text-white border-secondary" accept="image/*" />
+        </div>
+
+        <button type="submit" class="btn btn-light">Зберегти реліз</button>
+        <a asp-action="Index" class="btn btn-outline-secondary ms-2">Скасувати</a>
+    </form>
 </div>

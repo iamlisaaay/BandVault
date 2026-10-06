@@ -236,7 +236,9 @@ _pkginfo.txt
 *.[Cc]ache
 # but keep track of directories ending in .cache
 !?*.[Cc]ache/
-
+# Ignore uploaded release covers but keep the folder
+BandVault.Web/wwwroot/images/releases/*
+!BandVault.Web/wwwroot/images/releases/.gitkeep
 # Others
 ClientBin/
 ~$*
@@ -480,3 +482,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+# Ігноруємо всю папку audio та її вміст
+**/wwwroot/audio/*
+

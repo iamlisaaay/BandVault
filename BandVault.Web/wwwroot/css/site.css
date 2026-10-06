@@ -29,3 +29,46 @@ body {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
 }
+/* =========================================
+   Глобальний аудіо-плеєр (Turbo + Canvas)
+   ========================================= */
+
+/* Відступ знизу, щоб контент сайту не ховався під плеєром */
+body {
+    padding-bottom: 80px;
+}
+
+/* Фіксований футер для плеєра */
+.global-audio-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1050;
+    background-color: #121212 !important;
+}
+
+#visualizer {
+    background-color: transparent;
+    display: block;
+}
+
+/* Кастомізація стандартного аудіо-плеєра для темної теми */
+audio {
+    height: 40px;
+    outline: none;
+}
+
+    audio::-webkit-media-controls-panel {
+        background-color: #2a2a2a;
+    }
+
+    audio::-webkit-media-controls-play-button,
+    audio::-webkit-media-controls-mute-button {
+        filter: invert(1);
+    }
+
+    audio::-webkit-media-controls-current-time-display,
+    audio::-webkit-media-controls-time-remaining-display {
+        color: #fff;
+    }

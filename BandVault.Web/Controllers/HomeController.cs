@@ -1,25 +1,38 @@
-using BandVault.Web.Models;
 using Microsoft.AspNetCore.Mvc;
-using System.Diagnostics;
+using Microsoft.EntityFrameworkCore;
+using BandVault.Web.Data;
+using BandVault.Web.Models;
 
 namespace BandVault.Web.Controllers
 {
     public class HomeController : Controller
     {
-        public IActionResult Index()
+        private readonly ApplicationDbContext _context;
+
+        public HomeController(ApplicationDbContext context)
         {
-            return View();
+            _context = context;
         }
 
-        public IActionResult Privacy()
+        public async Task<IActionResult> Index()
         {
-            return View();
-        }
+            // 5 випадкових треків для правого блоку
+            var randomTracks = await _context.Tracks
+                .Include(t => t.Release)
+                .OrderBy(t => Guid.NewGuid())
+                .Take(5)
+                .ToListAsync();
 
-        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error()
-        {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+            // Останні новини (ТІЛЬКИ ОПУБЛІКОВАНІ)
+            var latestPosts = await _context.Posts
+                .Where(p => p.IsPublished == true) // <--- Фільтр по опублікованих
+                .OrderByDescending(p => p.CreatedAt)
+                .Take(10)
+                .ToListAsync();
+
+            ViewBag.RandomTracks = randomTracks;
+
+            return View(latestPosts);
         }
     }
 }

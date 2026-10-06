@@ -1,8 +1,141 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@model IEnumerable<BandVault.Web.Models.Post>
+
+@{
+    ViewData["Title"] = "Головна";
+    var randomTracks = ViewBag.RandomTracks as IEnumerable<BandVault.Web.Models.Track>;
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<style>
+    body {
+        background-color: #000000;
+        color: #ffffff;
+        letter-spacing: 0.5px;
+    }
+    .section-title {
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        font-size: 1rem;
+        font-weight: 600;
+        border-bottom: 1px solid #333;
+        padding-bottom: 0.75rem;
+        margin-bottom: 2rem;
+        color: #fff;
+    }
+    .news-post {
+        border-bottom: 1px solid #1a1a1a;
+        padding-bottom: 2.5rem;
+        margin-bottom: 2.5rem;
+    }
+    .news-meta {
+        font-size: 0.75rem;
+        letter-spacing: 1px;
+        color: #888;
+        text-transform: uppercase;
+        margin-bottom: 1rem;
+    }
+    .track-item {
+        background-color: transparent;
+        border: 1px solid transparent;
+        border-bottom: 1px solid #1a1a1a;
+        transition: background-color 0.2s;
+    }
+    .track-item:hover {
+        background-color: #0a0a0a;
+    }
+    .refresh-btn {
+        font-size: 0.7rem;
+        letter-spacing: 2px;
+        color: #666;
+        text-transform: uppercase;
+        background: none;
+        border: none;
+        padding: 0;
+        transition: color 0.2s;
+    }
+    .refresh-btn:hover {
+        color: #fff;
+    }
+    /* Зберігаємо форматування тексту новин (перенесення рядків з БД) */
+    .post-content {
+        font-size: 0.95rem;
+        line-height: 1.6;
+        white-space: pre-wrap;
+    }
+</style>
+
+<div class="row g-5 my-4">
+    
+    <!-- ЦЕНТР: Стрічка новин з бази даних -->
+    <div class="col-lg-8">
+        <h3 class="section-title">Останні новини</h3>
+
+       @if (Model != null && Model.Any())
+        {
+            foreach (var post in Model)
+            {
+                <div class="news-post">
+                    <div class="news-meta">
+                        <!-- Форматуємо дату красиво -->
+                        <span>@post.CreatedAt.ToString("dd.MM.yyyy")</span>
+                    </div>
+                    
+                    <h4 class="fw-bold mb-3">@post.Title</h4>
+                    
+                    <!-- ТУТ ВИКОРИСТОВУЄМО ContentMarkdown -->
+                    <div class="text-light opacity-75 mb-4 post-content">@post.ContentMarkdown</div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="text-secondary opacity-50" style="font-size: 0.9rem;">
+                <p>Новин поки немає.</p>
+            </div>
+        }
+    </div>
+
+    <!-- ПРАВИЙ КУТОК: Випадкові треки -->
+    <div class="col-lg-4">
+        <div class="sticky-top" style="top: 20px;">
+            <div class="d-flex justify-content-between align-items-end border-bottom border-secondary pb-2 mb-3">
+                <h4 class="section-title border-0 mb-0 pb-0">Випадкові треки</h4>
+                <button class="refresh-btn" onclick="location.reload()">Оновити</button>
+            </div>
+            
+            <div class="d-flex flex-column">
+                @if (randomTracks != null && randomTracks.Any())
+                {
+                    foreach (var track in randomTracks)
+                    {
+                        <div class="track-item d-flex align-items-center py-3 px-2">
+                            <!-- Обкладинка -->
+                            <img src="@(string.IsNullOrEmpty(track.Release?.CoverImageUrl) ? "https://via.placeholder.com/50/111/fff?text=+" : track.Release.CoverImageUrl)" 
+                                 class="me-3 border border-dark" style="width: 50px; height: 50px; object-fit: cover;" alt="Cover">
+                            
+                            <!-- Назва -->
+                            <div class="flex-grow-1 min-w-0">
+                                <h6 class="mb-1 text-truncate text-white" style="font-size: 0.9rem; font-weight: 500;">@track.Title</h6>
+                                <small class="text-secondary text-truncate d-block" style="font-size: 0.75rem;">@(track.Release?.Title ?? "Невідомо")</small>
+                            </div>
+                            
+                            <!-- Кнопка Play -->
+                            <button class="btn btn-link text-white text-decoration-none p-2 ms-2" 
+                                    style="font-size: 1.2rem; opacity: 0.8;"
+                                    onmouseover="this.style.opacity='1'" 
+                                    onmouseout="this.style.opacity='0.8'"
+                                    onclick="playTrack('@track.AudioFileUrl', '@track.Title', '@(track.Release?.Title)', '@(track.Release?.CoverImageUrl)', '/Releases/Details/@track.ReleaseId')">
+                                ▶
+                            </button>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="p-4 text-secondary text-center" style="font-size: 0.85rem;">
+                        <p class="mb-0">Треків ще немає.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
 </div>

@@ -1,4 +1,81 @@
-﻿@page
-@model BandVault.Web.Views.Releases.DetailsModel
-@{
-}
+﻿@model BandVault.Web.Models.Release
+
+<div class="container my-5">
+    <div class="row">
+        <!-- Обкладинка та інфо -->
+        <div class="col-md-4 text-center">
+            @if (!string.IsNullOrEmpty(Model.CoverImageUrl))
+            {
+                <img src="@Model.CoverImageUrl" class="img-fluid rounded shadow-lg border border-dark" alt="@Model.Title" />
+            }
+            else
+            {
+                <div class="bg-secondary p-5 rounded text-white">Немає обкладинки</div>
+            }
+            <h2 class="mt-3 text-white">@Model.Title</h2>
+            <p class="text-muted mb-1">Дата релізу: @Model.ReleaseDate.ToShortDateString()</p>
+            <p class="text-muted">Жанр: @Model.Genre?.Name</p>
+            <p class="text-white small text-start mt-3">@Model.Description</p>
+        </div>
+
+        <!-- Трекліст та додавання треків -->
+        <div class="col-md-8">
+            <h3 class="border-bottom border-secondary pb-2 text-white">Трекліст</h3>
+            
+            <ul class="list-group list-group-flush mb-4">
+                @if (Model.Tracks != null && Model.Tracks.Any())
+                {
+                    @foreach (var track in Model.Tracks)
+                    {
+                      <li class="list-group-item bg-transparent text-white border-secondary d-flex justify-content-between align-items-center px-0">
+    <span>🎵 @track.Title</span>
+    
+    <div class="d-flex gap-2">
+        <!-- Виклик плеєра -->
+        <button class="btn btn-sm btn-outline-light rounded-pill" 
+                onclick="playTrack('@track.AudioFileUrl', '@track.Title', '@Model.Title', '@Model.CoverImageUrl')">
+            ▶ Слухати
+        </button>
+
+        <!-- Кнопка видалення треку -->
+        <form asp-action="DeleteTrack" method="post" class="d-inline" onsubmit="return confirm('Ви впевнені, що хочете видалити цей трек?');">
+            <input type="hidden" name="trackId" value="@track.Id" />
+            <input type="hidden" name="releaseId" value="@Model.Id" />
+            <button type="submit" class="btn btn-sm btn-light rounded-pill">❌</button>
+        </form>
+    </div>
+</li>
+                    }
+                }
+                else
+                {
+                    <li class="list-group-item bg-transparent text-muted px-0">Треків ще немає.</li>
+                }
+            </ul>
+
+            <!-- Форма швидкого додавання MP3 -->
+            <div class="card bg-dark border-secondary mt-5">
+                <div class="card-header border-secondary text-light fw-bold">
+                    + Додати новий трек
+                </div>
+                <div class="card-body">
+                    <form asp-action="AddTrack" enctype="multipart/form-data" class="d-flex align-items-end gap-3">
+                        <input type="hidden" name="releaseId" value="@Model.Id" />
+                        
+                        <div class="flex-grow-1">
+                            <label class="form-label text-white small">Назва треку</label>
+                            <input type="text" name="title" class="form-control form-control-sm bg-dark text-white border-secondary" required />
+                        </div>
+                        
+                        <div class="flex-grow-1">
+                            <label class="form-label text-white small">Аудіофайл (MP3)</label>
+                            <input type="file" name="audioFile" class="form-control form-control-sm bg-dark text-white border-secondary" accept="audio/*" required />
+                        </div>
+
+                        <button type="submit" class="btn btn-sm btn-light px-4">Завантажити</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
