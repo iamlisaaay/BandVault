@@ -1,83 +1,279 @@
 ﻿@model IEnumerable<BandVault.Web.Models.Post>
 
 @{
-    ViewData["Title"] = "Головна";
-    var randomTracks = ViewBag.RandomTracks as IEnumerable<BandVault.Web.Models.Track>;
+    ViewData["Title"] = ViewBag.BandName;
+    
+    // Функція для витягування ID з YouTube
+    string GetYouTubeId(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return null;
+        if (url.Contains("v=")) return url.Split("v=")[1].Substring(0, 11);
+        if (url.Contains("youtu.be/")) return url.Split("youtu.be/")[1].Substring(0, 11);
+        return null;
+    }
+    
+    var videoId = GetYouTubeId(ViewBag.HeroVideoUrl);
+    bool isAuth = ViewBag.IsAuthenticated;
+    int userTier = ViewBag.UserTierLevel;
 }
 
-<div class="row g-5 my-4">
+<style>
+    html { scroll-behavior: smooth; }
 
-    <!-- ЦЕНТР: Стрічка новин з бази даних -->
-    <div class="col-lg-8">
-        <h3 class="section-title">Останні новини</h3>
+    /* === ВІДЕО ФОН === */
+    .group-hero {
+        position: relative;
+        height: 100vh;
+        width: 100%;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background-color: #050505;
+    }
 
+    .youtube-bg-container {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        overflow: hidden;
+        z-index: 0;
+    }
+
+    .youtube-bg-container::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background: rgba(10, 10, 10, 0.65);
+    }
+
+    .youtube-bg-iframe {
+        position: absolute;
+        top: 50%; left: 50%;
+        width: 100vw; height: 56.25vw;
+        min-height: 100vh; min-width: 177.77vh;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+
+    /* === КОНТЕНТ ПОВЕРХ ВІДЕО === */
+    .hero-content {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        width: 100%;
+    }
+
+    .hero-title {
+        font-family: 'Courier New', Courier, monospace;
+        letter-spacing: 5px;
+        margin-bottom: 2rem;
+        font-size: 1.5rem;
+    }
+    
+    .hero-subtitle {
+        letter-spacing: 2px;
+        color: #ccc;
+        margin-bottom: 3rem;
+    }
+</style>
+
+<!-- 1. HERO СЕКЦІЯ З ВІДЕО -->
+<div class="group-hero mb-5">
+    @if (!string.IsNullOrEmpty(videoId))
+    {
+        <div class="youtube-bg-container">
+            <iframe class="youtube-bg-iframe" 
+                    src="https://www.youtube.com/embed/@videoId?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=@videoId&playsinline=1" 
+                    frameborder="0" allow="autoplay; fullscreen">
+            </iframe>
+        </div>
+    }
+
+    <div class="hero-content">
+        <h1 class="text-white fw-bold mb-4" style="font-size: 4rem; letter-spacing: 8px; font-family: 'Times New Roman', serif;">
+            @ViewBag.BandName
+        </h1>
+
+        <div class="hero-title text-white fw-bold">WATCH NOW</div>
+        <div class="hero-subtitle">"@ViewBag.PromoText"</div>
+
+        <!-- ЛОГІКА АВТОРИЗАЦІЇ -->
+        <div class="mt-4">
+            @if (!isAuth)
+            {
+                <p class="text-light meta-text mb-4 opacity-75" style="letter-spacing: 1px;">
+                    ОФІЦІЙНИЙ ФАН-КЛУБ ГУРТУ @ViewBag.BandName
+                </p>
+                <button type="button" class="btn btn-outline-light rounded-0 text-uppercase px-5 py-2 me-3" style="letter-spacing: 2px;" data-bs-toggle="modal" data-bs-target="#tierModal">
+                    Стати учасником
+                </button>
+                <a href="/Identity/Account/Login" class="text-secondary text-uppercase text-decoration-none" style="letter-spacing: 1px; font-size: 0.9rem; transition: color 0.3s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">
+                    Авторизуватись
+                </a>
+            }
+            else
+            {
+                <div class="d-inline-block border border-secondary px-4 py-3 mb-4">
+                    <p class="text-white meta-text mb-0" style="letter-spacing: 1px;">ТИ З НАМИ ВЖЕ <span class="text-success fw-bold">@ViewBag.DaysJoined</span> ДНІВ</p>
+                </div>
+                <br>
+                <a href="#news" class="btn btn-light rounded-0 text-uppercase px-5 py-2 fw-bold" style="letter-spacing: 2px;">
+                    Читати новини
+                </a>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- 2. СЕКЦІЯ НОВИН -->
+<div class="container my-5 pt-4" id="news">
+    <h4 class="text-uppercase text-secondary mb-5 text-center" style="letter-spacing: 4px;">Секретні матеріали</h4>
+    
+    <div class="row row-cols-1 g-4 max-w-75 mx-auto" style="max-width: 800px; margin: 0 auto;">
         @if (Model != null && Model.Any())
         {
             foreach (var post in Model)
             {
-                <div class="content-post">
-                    <div class="meta-text">
-                        <!-- Форматуємо дату красиво -->
-                        <span>@post.CreatedAt.ToString("dd.MM.yyyy")</span>
+                @if (post.RequiredTierLevel > userTier)
+                {
+                    <div class="col">
+                        <div class="card bg-transparent border-secondary text-center py-5 rounded-0" style="border-style: dashed !important;">
+                            <h5 class="text-secondary meta-text mb-3">🔒 ЦЕЙ КОНТЕНТ ДОСТУПНИЙ ТІЛЬКИ ДЛЯ TIER @post.RequiredTierLevel+</h5>
+                            @if(!isAuth)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary rounded-0 text-uppercase mx-auto" data-bs-toggle="modal" data-bs-target="#tierModal">Долучитися до фан-клубу</button>
+                            }
+                            else
+                            {
+                                <a href="/Tiers/Upgrade" class="btn btn-sm btn-outline-secondary rounded-0 text-uppercase mx-auto">Підвищити рівень</a>
+                            }
+                        </div>
                     </div>
-
-                    <h4 class="fw-bold mb-3">@post.Title</h4>
-
-                    <!-- ТУТ ВИКОРИСТОВУЄМО ContentMarkdown -->
-                    <div class="text-light opacity-75 mb-4 markdown-content">@post.ContentMarkdown</div>
-                </div>
+                }
+                else
+                {
+                    <div class="col">
+                        <div class="card bg-transparent border-secondary text-white rounded-0">
+                            <div class="card-body p-4">
+                                <h6 class="text-secondary meta-text mb-3 border-bottom border-secondary pb-2">
+                                    @post.CreatedAt.ToString("dd.MM.yyyy") | TIER @post.RequiredTierLevel
+                                </h6>
+                                <h4 class="card-title fw-bold text-uppercase mb-3">@post.Title</h4>
+                                <p class="card-text text-light opacity-75">
+                                    @post.ContentMarkdown
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                }
             }
         }
         else
         {
-            <div class="text-secondary opacity-50" style="font-size: 0.9rem;">
-                <p>Новин поки немає.</p>
+            <div class="col-12 text-center py-5">
+                <p class="text-secondary meta-text">НОВИН ПОКИ НЕМАЄ</p>
             </div>
         }
     </div>
+</div>
 
-    <!-- ПРАВИЙ КУТОК: Випадкові треки -->
-    <div class="col-lg-4">
-        <div class="sticky-top" style="top: 20px;">
-            <div class="d-flex justify-content-between align-items-end border-bottom border-secondary pb-2 mb-3">
-                <h4 class="section-title border-0 mb-0 pb-0">Випадкові треки</h4>
-                <button class="btn-text-muted" onclick="location.reload()">Оновити</button>
-            </div>
+<!-- 3. CALL TO ACTION (Форма підписки та Соцмережі) -->
+<div class="container my-5 py-5" id="join">
+    <div class="card bg-transparent border-secondary rounded-0 text-center p-5" style="box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <h3 class="fw-bold text-uppercase text-white mb-3" style="letter-spacing: 2px;">Долучайся до інсайдерів</h3>
+        <p class="text-secondary mb-4 meta-text">Залиш свій email, щоб першим дізнаватися про нові поставки мерчу та закриті заходи.</p>
+        
+        <form class="d-flex justify-content-center mx-auto mb-4" style="max-width: 500px;" onsubmit="event.preventDefault(); alert('Дякуємо за підписку!');">
+            <input type="email" class="form-control bg-dark border-secondary text-white rounded-0 me-2" placeholder="ТВІЙ EMAIL..." required style="letter-spacing: 1px;">
+            <button type="submit" class="btn btn-light rounded-0 text-uppercase fw-bold px-4" style="letter-spacing: 1px;">Підписатися</button>
+        </form>
+        
+        <!-- ДИНАМІЧНІ СОЦМЕРЕЖІ З БАЗИ -->
+        <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+            <a href="@ViewBag.Social_YouTube" class="text-secondary text-decoration-none meta-text hover-light">YOUTUBE</a>
+            <span class="text-secondary">|</span>
+            <a href="@ViewBag.Social_Instagram" class="text-secondary text-decoration-none meta-text hover-light">INSTAGRAM</a>
+            <span class="text-secondary">|</span>
+            <a href="@ViewBag.Social_Twitter" class="text-secondary text-decoration-none meta-text hover-light">X (TWITTER)</a>
+            <span class="text-secondary">|</span>
+            <a href="@ViewBag.Social_Discord" class="text-secondary text-decoration-none meta-text hover-light">DISCORD</a>
+            <span class="text-secondary">|</span>
+            <a href="@ViewBag.Social_Telegram" class="text-secondary text-decoration-none meta-text hover-light">TELEGRAM</a>
+        </div>
+        
+        <p class="mt-4 text-secondary meta-text" style="font-size: 0.8rem;">
+            BOOKING & CONTACT: <a href="mailto:@ViewBag.ContactEmail" class="text-secondary text-decoration-none border-bottom border-secondary pb-1">@ViewBag.ContactEmail</a>
+        </p>
+    </div>
+</div>
 
-            <div class="d-flex flex-column">
-                @if (randomTracks != null && randomTracks.Any())
+<!-- 4. МОДАЛЬНЕ ВІКНО З ТІРАМИ (ПІДПИСКИ) -->
+<div class="modal fade" id="tierModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content bg-dark border-secondary rounded-0 text-white" style="box-shadow: 0 0 50px rgba(0,0,0,0.8);">
+      <div class="modal-header border-bottom border-secondary p-4">
+        <h5 class="modal-title text-uppercase fw-bold mx-auto" style="letter-spacing: 3px;">Обери свій рівень доступу</h5>
+        <button type="button" class="btn-close btn-close-white position-absolute end-0 me-4" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      
+      <div class="modal-body p-5">
+        <div class="row row-cols-1 row-cols-md-3 g-4 justify-content-center">
+            
+            @if (ViewBag.Tiers != null)
+            {
+                foreach (var tier in ViewBag.Tiers)
                 {
-                    foreach (var track in randomTracks)
-                    {
-                        <div class="list-item-hover d-flex align-items-center py-3 px-2">
-                            <!-- Обкладинка -->
-                            <img src="@(string.IsNullOrEmpty(track.Release?.CoverImageUrl) ? "https://via.placeholder.com/50/111/fff?text=+" : track.Release.CoverImageUrl)"
-                                 class="me-3 border border-dark" style="width: 50px; height: 50px; object-fit: cover;" alt="Cover">
+                    <div class="col">
+                        <!-- Якщо IsRecommended, додаємо світлу рамку -->
+                        <div class="card h-100 bg-transparent rounded-0 text-center @(tier.IsRecommended ? "border-light" : "border-secondary")" style="transition: transform 0.3s;">
+                            
+                            @if (tier.IsRecommended)
+                            {
+                                <div class="bg-light text-dark text-uppercase fw-bold meta-text py-1" style="font-size: 0.75rem; letter-spacing: 2px;">
+                                    Найкращий вибір
+                                </div>
+                            }
 
-                            <!-- Назва -->
-                            <div class="flex-grow-1 min-w-0">
-                                <h6 class="mb-1 text-truncate text-white" style="font-size: 0.9rem; font-weight: 500;">@track.Title</h6>
-                                <small class="text-secondary text-truncate d-block" style="font-size: 0.75rem;">@(track.Release?.Title ?? "Невідомо")</small>
+                            <div class="card-body p-4 d-flex flex-column">
+                                <h4 class="text-uppercase fw-bold mb-1" style="letter-spacing: 2px;">@tier.Name</h4>
+                                <p class="text-secondary meta-text mb-4">TIER @tier.Level</p>
+                                
+                                <h2 class="fw-bold mb-4">
+                                    @tier.Price.ToString("0.00")<span style="font-size: 1rem; color: #888;"> $ / МІС</span>
+                                </h2>
+
+                                <ul class="list-unstyled text-start mb-4 flex-grow-1">
+                                    @if (tier.Features != null)
+                                    {
+                                        foreach (var feature in tier.Features)
+                                        {
+                                            <li class="mb-3 text-light" style="font-size: 0.9rem;">
+                                                <span class="text-success me-2">✓</span> @feature.Description
+                                            </li>
+                                        }
+                                    }
+                                </ul>
+
+                                <a href="/Identity/Account/Register?tierId=@tier.Id" class="btn @(tier.IsRecommended ? "btn-light" : "btn-outline-light") rounded-0 text-uppercase fw-bold w-100 mt-auto py-2" style="letter-spacing: 1px;">
+                                    Обрати
+                                </a>
                             </div>
-
-                            <!-- Кнопка Play -->
-                            <button class="btn btn-link text-white text-decoration-none p-2 ms-2"
-                                    style="font-size: 1.2rem; opacity: 0.8;"
-                                    onmouseover="this.style.opacity='1'"
-                                    onmouseout="this.style.opacity='0.8'"
-                                    onclick="playTrack('@track.AudioFileUrl', '@track.Title', '@(track.Release?.Title)', '@(track.Release?.CoverImageUrl)', '/Releases/Details/@track.ReleaseId')">
-                                ▶
-                            </button>
                         </div>
-                    }
-                }
-                else
-                {
-                    <div class="p-4 text-secondary text-center" style="font-size: 0.85rem;">
-                        <p class="mb-0">Треків ще немає.</p>
                     </div>
                 }
-            </div>
+            }
+            else
+            {
+                <div class="text-center text-secondary w-100 py-5">
+                    <p class="meta-text">РІВНІ ПІДПИСКИ ЩЕ НЕ НАЛАШТОВАНІ АДМІНІСТРАТОРОМ.</p>
+                </div>
+            }
+            
         </div>
+      </div>
     </div>
+  </div>
 </div>

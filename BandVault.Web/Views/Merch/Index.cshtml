@@ -1,0 +1,145 @@
+﻿@model IEnumerable<BandVault.Web.Models.MerchItem>
+@{
+    ViewData["Title"] = "Каталог Мерчу";
+}
+
+<div class="container my-5">
+    <div class="d-flex justify-content-between align-items-end mb-4 border-bottom border-secondary pb-2">
+        <h3 class="section-title border-0 mb-0 pb-0">Каталог мерчу</h3>
+       <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold" style="letter-spacing: 1px;">+ Додати мерч</a>
+      
+    </div>
+
+    <!-- Блок пошуку (F2: Autocomplete / Живий пошук) -->
+    <div class="position-relative mb-5 w-50 mx-auto">
+        <input type="text" id="merchSearchInput" class="form-control bg-transparent border-secondary text-white rounded-0" placeholder="ПОШУК ТОВАРУ (ВІД 3 СИМВОЛІВ)..." autocomplete="off" style="letter-spacing: 1px; font-size: 0.9rem;" />
+        
+        <!-- Результати пошуку -->
+        <ul id="searchResults" class="list-group position-absolute w-100 mt-1 rounded-0 border border-secondary" style="display: none; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.5); background-color: #1a1a1a;"></ul>
+    </div>
+
+    <!-- Каталог товарів (Таблиця замінена на сітку карток, як у релізах) -->
+    <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
+        @foreach (var item in Model)
+        {
+            <div class="col">
+                <div class="card h-100 bg-transparent border-secondary text-white hover-lift rounded-0">
+                    <!-- Зображення товару -->
+                    @if (!string.IsNullOrEmpty(item.ImageUrl))
+                    {
+                        <img src="@item.ImageUrl" class="card-img-top rounded-0" alt="@item.Title" style="height: 250px; object-fit: cover;">
+                    }
+                    else
+                    {
+                        <div class="card-img-top bg-dark d-flex align-items-center justify-content-center rounded-0 border-bottom border-secondary" style="height: 250px;">
+                            <span class="text-secondary meta-text">БЕЗ ФОТО</span>
+                        </div>
+                    }
+
+                    <div class="card-body pb-1">
+                        <h5 class="card-title fw-bold text-truncate" title="@item.Title">@item.Title</h5>
+                        <p class="card-text mb-1 meta-text">КАТЕГОРІЯ: @(item.Category?.Name ?? "НЕМАЄ")</p>
+                        <p class="card-text mb-1 meta-text">ЦІНА: @item.Price.ToString("0.00") €</p>
+                        <p class="card-text meta-text">
+                            ЗАЛИШОК: 
+                            @if(item.StockQuantity > 0)
+                            {
+                                <span class="text-white">@item.StockQuantity ШТ.</span>
+                            }
+                            else
+                            {
+                                <span class="text-danger">НЕМАЄ В НАЯВНОСТІ</span>
+                            }
+                        </p>
+                    </div>
+
+                    <div class="card-footer bg-transparent border-0 pt-0 d-flex flex-column gap-2">
+                        <a href="#" class="btn btn-outline-light w-100 rounded-0 text-uppercase" style="font-size: 0.8rem; letter-spacing: 1px;">
+                            Деталі
+                        </a>
+                        <div class="d-flex gap-2">
+    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary w-50 rounded-0">Ред.</a>
+    <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger w-50 rounded-0 border-secondary text-secondary">Вид.</a>
+</div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const searchInput = document.getElementById('merchSearchInput');
+            const searchResults = document.getElementById('searchResults');
+            let debounceTimer;
+
+            // Слухаємо введення тексту (Автокомпліт)
+            searchInput.addEventListener('input', function () {
+                const query = searchInput.value.trim();
+                
+                // Очищаємо таймер при кожному новому натисканні клавіші
+                clearTimeout(debounceTimer);
+
+                // Ховаємо випадайку, якщо введено менше 3 символів
+                if (query.length < 3) {
+                    searchResults.style.display = 'none';
+                    searchResults.innerHTML = '';
+                    return;
+                }
+
+                // Вимога F2: затримка (debounce) 300мс перед відправкою запиту
+                debounceTimer = setTimeout(() => {
+                    fetch(`/api/merch?query=${encodeURIComponent(query)}&pageSize=5`)
+                        .then(response => response.json())
+                        .then(json => {
+                            searchResults.innerHTML = ''; 
+
+                            if (json.data && json.data.length > 0) {
+                                searchResults.style.display = 'block';
+                                
+                                json.data.forEach(item => {
+                                    const li = document.createElement('li');
+                                    li.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center bg-dark border-bottom border-secondary text-white rounded-0 py-3';
+                                    li.style.cursor = 'pointer';
+                                    
+                                    li.innerHTML = `
+                                        <div class="d-flex align-items-center gap-3">
+                                            <img src="${item.imageUrl || 'https://via.placeholder.com/50/111/fff?text=+'}" alt="Cover" style="width: 40px; height: 40px; object-fit: cover;" class="border border-secondary">
+                                            <div>
+                                                <h6 class="mb-0 fw-bold text-truncate" style="max-width: 200px;">${item.title}</h6>
+                                                <small class="meta-text text-secondary">${item.price.toFixed(2)} $</small>
+                                            </div>
+                                        </div>
+                                    `;
+                                    
+                                    // Ефект наведення мишкою
+                                    li.addEventListener('mouseover', () => li.style.backgroundColor = 'rgba(255,255,255,0.1)');
+                                    li.addEventListener('mouseout', () => li.style.backgroundColor = '');
+
+                                    // КЛІК ПО ПІДКАЗЦІ: миттєвий перехід на сторінку товару!
+                                    li.addEventListener('click', function() {
+                                        window.location.href = `/Merch/Details/${item.id}`;
+                                    });
+
+                                    searchResults.appendChild(li);
+                                });
+                            } else {
+                                searchResults.style.display = 'block';
+                                searchResults.innerHTML = '<li class="list-group-item bg-dark text-secondary meta-text text-center py-4 border-0">НІЧОГО НЕ ЗНАЙДЕНО</li>';
+                            }
+                        })
+                        .catch(error => console.error('Помилка пошуку:', error));
+                }, 300);
+            });
+
+            // Ховаємо випадайку, якщо клікнули поза нею
+            document.addEventListener('click', function (e) {
+                if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                    searchResults.style.display = 'none';
+                }
+            });
+        });
+    </script>
+}

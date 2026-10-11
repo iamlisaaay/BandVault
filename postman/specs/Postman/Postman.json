@@ -1,0 +1,63 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Postman",
+    "version": "1.0.0",
+    "description": ""
+  },
+  "servers": [
+    {
+      "url": "https://localhost:7219"
+    }
+  ],
+  "paths": {
+    "/api/merch": {
+      "post": {
+        "summary": "BandVault API",
+        "responses": {},
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "price": {
+                    "type": "integer"
+                  },
+                  "stockQuantity": {
+                    "type": "integer"
+                  },
+                  "imageUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "categoryId": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "example": {
+                "title": "SEVERED HOPES SHATTERED INNOCENCE Tote Bag",
+                "description": "SEVERED HOPES SHATTERED INNOCENCE Tote Bag",
+                "price": 20,
+                "stockQuantity": 50,
+                "imageUrl": "https://www.pinterest.com/pin/711639178674429249/",
+                "categoryId": 2
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Get Merch List",
+        "responses": {}
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+$kind: http-request
+description: ""
+url: https://localhost:7219/api/merch
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"title\": \"Band T-Shirt\",\r
+
+    \  \"description\": \"Black t-shirt with logo\",\r
+
+    \  \"price\": 25.00,\r
+
+    \  \"stockQuantity\": 100,\r
+
+    \  \"categoryId\": 1\r
+
+    }"
+scripts:
+  - type: afterResponse
+    code: ""
+    language: text/javascript
+order: 4254654815086926

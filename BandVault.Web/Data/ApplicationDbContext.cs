@@ -13,6 +13,7 @@ namespace BandVault.Web.Data
         public DbSet<Genre> Genres { get; set; }
         public DbSet<Release> Releases { get; set; }
         public DbSet<Track> Tracks { get; set; }
+        public DbSet<SiteSetting> SiteSettings { get; set; }
         public DbSet<SubscriptionTier> SubscriptionTiers { get; set; }
         public DbSet<TierFeature> TierFeatures { get; set; }
         public DbSet<User> Users { get; set; }
@@ -22,6 +23,8 @@ namespace BandVault.Web.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Post> Posts { get; set; }
+
+ 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

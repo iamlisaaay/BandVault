@@ -106,7 +106,7 @@ namespace BandVault.Web.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int>("StockQuantity")
+                    b.Property<int?>("StockQuantity")
                         .HasColumnType("integer");
 
                     b.Property<string>("Title")
@@ -229,6 +229,9 @@ namespace BandVault.Web.Migrations
                     b.Property<bool>("IsPublished")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("RequiredTierLevel")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
@@ -270,6 +273,27 @@ namespace BandVault.Web.Migrations
                     b.HasIndex("GenreId");
 
                     b.ToTable("Releases");
+                });
+
+            modelBuilder.Entity("BandVault.Web.Models.SiteSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SiteSetting");
                 });
 
             modelBuilder.Entity("BandVault.Web.Models.SubscriptionTier", b =>

@@ -1,0 +1,36 @@
+﻿@model BandVault.Web.Models.SiteSetting
+
+@{
+    ViewData["Title"] = "Редагувати налаштування";
+}
+
+<div class="container my-5 text-white" style="max-width: 600px;">
+    <h3 class="text-uppercase fw-bold mb-4" style="letter-spacing: 2px;">
+        Редагувати: <span class="text-secondary">@Model.Key</span>
+    </h3>
+
+    <div class="card bg-transparent border-secondary p-5 rounded-0" style="box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <form asp-action="Edit">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <input type="hidden" asp-for="Id" />
+
+            <!-- Ключ робимо readonly (тільки для читання) -->
+            <div class="form-group mb-4">
+                <label asp-for="Key" class="control-label text-secondary meta-text mb-2">Системний ключ (Не змінювати)</label>
+                <input asp-for="Key" class="form-control bg-dark text-secondary border-secondary rounded-0" readonly />
+            </div>
+
+            <!-- Поле для значення -->
+            <div class="form-group mb-5">
+                <label asp-for="Value" class="control-label text-light meta-text mb-2">Нове значення</label>
+                <textarea asp-for="Value" class="form-control bg-dark text-white border-secondary rounded-0" rows="4" style="letter-spacing: 1px;"></textarea>
+                <span asp-validation-for="Value" class="text-danger"></span>
+            </div>
+
+            <div class="form-group d-flex justify-content-between">
+                <a asp-action="Index" class="btn btn-outline-secondary rounded-0 px-4 text-uppercase fw-bold" style="letter-spacing: 1px;">Скасувати</a>
+                <button type="submit" class="btn btn-light rounded-0 px-5 text-uppercase fw-bold" style="letter-spacing: 1px;">Зберегти</button>
+            </div>
+        </form>
+    </div>
+</div>

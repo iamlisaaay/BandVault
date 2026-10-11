@@ -1,0 +1,72 @@
+﻿@model BandVault.Web.Models.MerchItem
+
+@{
+    ViewData["Title"] = "Редагувати мерч";
+}
+
+<div class="container my-5" style="max-width: 800px;">
+    <h3 class="section-title border-bottom border-secondary pb-2 mb-4">РЕДАГУВАТИ ТОВАР</h3>
+
+    <div class="card bg-transparent border-secondary text-white rounded-0">
+        <div class="card-body">
+            <form asp-action="Edit" enctype="multipart/form-data">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3 meta-text"></div>
+                <input type="hidden" asp-for="Id" />
+                <input type="hidden" asp-for="ImageUrl" /> <!-- Зберігаємо старе фото, якщо не завантажили нове -->
+
+                <div class="mb-3">
+                    <label asp-for="Title" class="form-label fw-bold text-uppercase meta-text">Назва</label>
+                    <input asp-for="Title" class="form-control bg-transparent border-secondary text-white rounded-0" />
+                    <span asp-validation-for="Title" class="text-danger meta-text"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Description" class="form-label fw-bold text-uppercase meta-text">Опис</label>
+                    <textarea asp-for="Description" class="form-control bg-transparent border-secondary text-white rounded-0" rows="3"></textarea>
+                    <span asp-validation-for="Description" class="text-danger meta-text"></span>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Price" class="form-label fw-bold text-uppercase meta-text">Ціна ($)</label>
+                        <input asp-for="Price" type="number" step="0.01" class="form-control bg-transparent border-secondary text-white rounded-0" />
+                        <span asp-validation-for="Price" class="text-danger meta-text"></span>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="StockQuantity" class="form-label fw-bold text-uppercase meta-text">Залишок (шт.)</label>
+                        <input asp-for="StockQuantity" type="number" class="form-control bg-transparent border-secondary text-white rounded-0" />
+                        <span asp-validation-for="StockQuantity" class="text-danger meta-text"></span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="CategoryId" class="form-label fw-bold text-uppercase meta-text">Категорія</label>
+                    <select asp-for="CategoryId" class="form-select bg-dark border-secondary text-white rounded-0" asp-items="ViewBag.Categories"></select>
+                    <span asp-validation-for="CategoryId" class="text-danger meta-text"></span>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-uppercase meta-text">Нове фото товару (опціонально)</label>
+                    @if (!string.IsNullOrEmpty(Model.ImageUrl))
+                    {
+                        <div class="mb-2">
+                            <span class="meta-text text-secondary me-2">Поточне фото:</span>
+                            <img src="@Model.ImageUrl" alt="Current Image" style="height: 50px; object-fit: cover;" class="border border-secondary" />
+                        </div>
+                    }
+                    <input type="file" name="imageFile" class="form-control bg-transparent border-secondary text-white rounded-0" accept="image/*" />
+                </div>
+
+                <div class="d-flex gap-3 mt-4">
+                    <button type="submit" class="btn btn-light rounded-0 text-uppercase fw-bold px-4" style="letter-spacing: 1px;">ОНОВИТИ</button>
+                    <a asp-action="Index" class="btn btn-outline-secondary rounded-0 text-uppercase px-4" style="letter-spacing: 1px;">СКАСУВАТИ</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

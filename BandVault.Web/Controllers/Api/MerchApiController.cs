@@ -16,25 +16,31 @@ namespace BandVault.Web.Controllers.Api
             _context = context;
         }
 
-        // GET: api/merch?page=1&pageSize=10
+        // GET: api/merch?query=Tote&page=1&pageSize=10
         [HttpGet]
-        public async Task<IActionResult> GetMerch([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetMerch([FromQuery] string? query = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             if (page < 1) page = 1;
             if (pageSize < 1) pageSize = 10;
 
-            var totalItems = await _context.MerchItems.CountAsync();
+            var merchQuery = _context.MerchItems.Include(m => m.Category).AsQueryable();
+
+            // Фільтруємо базу, якщо передали текст для пошуку
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                merchQuery = merchQuery.Where(m => m.Title.ToLower().Contains(query.ToLower()));
+            }
+
+            var totalItems = await merchQuery.CountAsync();
             var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
 
-            var items = await _context.MerchItems
-                .Include(m => m.Category)
+            var items = await merchQuery
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
 
-        
             string? nextLink = page < totalPages
-                ? Url.Action(nameof(GetMerch), new { page = page + 1, pageSize })
+                ? Url.Action(nameof(GetMerch), new { query, page = page + 1, pageSize })
                 : null;
 
             return Ok(new

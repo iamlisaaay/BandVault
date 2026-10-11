@@ -1,0 +1,34 @@
+﻿@model IEnumerable<BandVault.Web.Models.SiteSetting>
+
+@{
+    ViewData["Title"] = "Керування сайтом";
+}
+
+<div class="container my-5 text-white">
+    <h2 class="text-uppercase fw-bold mb-4" style="letter-spacing: 2px;">Налаштування Лендінгу</h2>
+    <p class="text-secondary meta-text mb-4">Тут ви можете змінити фонове відео, тексти та посилання на соцмережі.</p>
+
+    <div class="table-responsive">
+        <table class="table table-dark table-striped table-bordered border-secondary align-middle">
+            <thead>
+                <tr class="text-secondary text-uppercase meta-text" style="letter-spacing: 1px;">
+                    <th style="width: 25%;">Ключ (Системна назва)</th>
+                    <th style="width: 60%;">Значення (Текст або URL)</th>
+                    <th style="width: 15%; text-align: center;">Дії</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td class="fw-bold text-light">@item.Key</td>
+                        <td class="text-truncate" style="max-width: 300px; color: #aaa;">@item.Value</td>
+                        <td class="text-center">
+                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-light rounded-0 text-uppercase" style="letter-spacing: 1px;">Змінити</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

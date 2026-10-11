@@ -7,6 +7,7 @@
         public string ContentMarkdown { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public bool IsPublished { get; set; }
+        public int RequiredTierLevel { get; set; }
 
         public int AuthorId { get; set; }
         public User? Author { get; set; }

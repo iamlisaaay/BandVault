@@ -1,0 +1,49 @@
+$kind: http-request
+description: ""
+url: https://localhost:7219/api/merch
+method: GET
+scripts:
+  - type: afterResponse
+    code: "// 1. Перевірка статус-коду\r
+
+      pm.test(\"Status code is 200 OK\", function () {\r
+
+      \    pm.response.to.have.status(200);\r
+
+      });\r
+
+      \r
+
+      // 2. Перевірка структури JSON (чи є там пагінація)\r
+
+      pm.test(\"Response contains pagination fields\", function () {\r
+
+      \    var jsonData = pm.response.json();\r
+
+      \    \r
+
+      \    pm.expect(jsonData).to.have.property('totalItems');\r
+
+      \    pm.expect(jsonData).to.have.property('totalPages');\r
+
+      \    pm.expect(jsonData).to.have.property('currentPage');\r
+
+      \    pm.expect(jsonData).to.have.property('pageSize');\r
+
+      \    pm.expect(jsonData).to.have.property('data'); // Наш масив даних\r
+
+      });\r
+
+      \r
+
+      // 3. Перевірка, що data — це масив\r
+
+      pm.test(\"Data is an array\", function () {\r
+
+      \    var jsonData = pm.response.json();\r
+
+      \    pm.expect(jsonData.data).to.be.an('array');\r
+
+      });"
+    language: text/javascript
+order: 3014914159576468

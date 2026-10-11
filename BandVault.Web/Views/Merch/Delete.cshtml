@@ -1,0 +1,47 @@
+﻿@model BandVault.Web.Models.MerchItem
+
+@{
+    ViewData["Title"] = "Видалити мерч";
+}
+
+<div class="container my-5" style="max-width: 600px;">
+    <h3 class="section-title border-bottom border-danger pb-2 mb-4 text-danger">ВИДАЛЕННЯ ТОВАРУ</h3>
+
+    <div class="alert bg-transparent border-danger text-white rounded-0 mb-4">
+        <h5 class="fw-bold mb-0">Ви впевнені, що хочете видалити цей товар?</h5>
+        <p class="mb-0 mt-2 meta-text text-secondary">Ця дія є незворотною.</p>
+    </div>
+
+    <div class="card bg-transparent border-secondary text-white rounded-0">
+        @if (!string.IsNullOrEmpty(Model.ImageUrl))
+        {
+            <img src="@Model.ImageUrl" class="card-img-top rounded-0 border-bottom border-secondary" alt="@Model.Title" style="height: 300px; object-fit: cover;">
+        }
+        
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-4 text-uppercase meta-text text-secondary">Назва</dt>
+                <dd class="col-sm-8 fw-bold">@Model.Title</dd>
+
+                <dt class="col-sm-4 text-uppercase meta-text text-secondary">Категорія</dt>
+                <dd class="col-sm-8">@(Model.Category?.Name ?? "Без категорії")</dd>
+
+                <dt class="col-sm-4 text-uppercase meta-text text-secondary">Ціна</dt>
+                <dd class="col-sm-8">@Model.Price.ToString("0.00") $</dd>
+
+                <dt class="col-sm-4 text-uppercase meta-text text-secondary">Залишок</dt>
+                <dd class="col-sm-8">@Model.StockQuantity шт.</dd>
+            </dl>
+        </div>
+        
+        <div class="card-footer bg-transparent border-top border-secondary p-3">
+            <form asp-action="Delete">
+                <input type="hidden" asp-for="Id" />
+                <div class="d-flex gap-3">
+                    <button type="submit" class="btn btn-danger rounded-0 text-uppercase fw-bold px-4" style="letter-spacing: 1px;">ВИДАЛИТИ</button>
+                    <a asp-action="Index" class="btn btn-outline-light rounded-0 text-uppercase px-4" style="letter-spacing: 1px;">СКАСУВАТИ</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

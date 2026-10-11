@@ -1,0 +1,29 @@
+$kind: http-request
+name: Create Merch(error)
+description: ""
+url: https://localhost:7219/api/merch
+method: POST
+body:
+  type: json
+  content: ""
+scripts:
+  - type: afterResponse
+    code: "// Перевірка, що API не дає створити пустий/неправильний об'єкт\r
+
+      pm.test(\"Status code is 400 Bad Request\", function () {\r
+
+      \    pm.response.to.have.status(400);\r
+
+      });\r
+
+      \r
+
+      pm.test(\"Response has validation errors\", function () {\r
+
+      \    var jsonData = pm.response.json();\r
+
+      \    pm.expect(jsonData).to.have.property('errors'); // ASP.NET автоматично повертає поле errors\r
+
+      });"
+    language: text/javascript
+order: 4059587025397572

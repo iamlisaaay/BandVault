@@ -45,7 +45,27 @@ namespace BandVault.Web
                 pattern: "{controller=Home}/{action=Index}/{id?}")
                 .WithStaticAssets();
 
-            app.Run();
+            // ============================================
+            // ЗАПУСК СІДЕРА ДЛЯ ЗАПОВНЕННЯ БАЗИ ДАНИХ
+            // ============================================
+            using (var scope = app.Services.CreateScope())
+            {
+                var services = scope.ServiceProvider;
+                try
+                {
+                    var context = services.GetRequiredService<BandVault.Web.Data.ApplicationDbContext>();
+                    // Цей метод автоматично заповнить SiteSettings та Tiers, якщо вони порожні
+                    BandVault.Web.Data.DbInitializer.SeedDataAsync(context).Wait();
+                }
+                catch (Exception ex)
+                {
+                    var logger = services.GetRequiredService<ILogger<Program>>();
+                    logger.LogError(ex, "Сталася помилка під час заповнення бази даних.");
+                }
+            }
+            // ============================================
+
+            app.Run(); // Цей рядок уже має бути у тебе в самому кінці
         }
     }
 }

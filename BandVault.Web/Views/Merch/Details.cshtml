@@ -1,0 +1,71 @@
+﻿@model BandVault.Web.Models.MerchItem
+
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<div class="container my-5" style="max-width: 1000px;">
+    <!-- Кнопка назад -->
+    <div class="mb-4">
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary rounded-0 text-uppercase fw-bold" style="letter-spacing: 1px;">
+            &larr; Назад до каталогу
+        </a>
+    </div>
+
+    <div class="card bg-transparent border-secondary text-white rounded-0">
+        <div class="row g-0">
+            <!-- Ліва колонка: Фото -->
+            <div class="col-md-5 border-end border-secondary">
+                @if (!string.IsNullOrEmpty(Model.ImageUrl))
+                {
+                    <img src="@Model.ImageUrl" class="img-fluid rounded-0 w-100 h-100" alt="@Model.Title" style="object-fit: cover; min-height: 400px;">
+                }
+                else
+                {
+                    <div class="bg-dark d-flex align-items-center justify-content-center h-100" style="min-height: 400px;">
+                        <span class="text-secondary meta-text">БЕЗ ФОТО</span>
+                    </div>
+                }
+            </div>
+            
+            <!-- Права колонка: Інформація -->
+            <div class="col-md-7">
+                <div class="card-body p-4 p-lg-5 d-flex flex-column h-100">
+                    <h2 class="fw-bold text-uppercase mb-3" style="letter-spacing: 1px;">@Model.Title</h2>
+                    
+                    <div class="mb-4 d-flex gap-2">
+                        <span class="badge border border-secondary text-secondary rounded-0 meta-text p-2">
+                            @(Model.Category?.Name ?? "БЕЗ КАТЕГОРІЇ")
+                        </span>
+                        
+                        @if (Model.StockQuantity > 0)
+                        {
+                            <span class="badge bg-success rounded-0 meta-text p-2">В НАЯВНОСТІ: @Model.StockQuantity ШТ.</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger rounded-0 meta-text p-2">НЕМАЄ В НАЯВНОСТІ</span>
+                        }
+                    </div>
+
+                    <h3 class="fw-bold text-white mb-4">@Model.Price.ToString("0.00") $</h3>
+
+                    <div class="mb-5 flex-grow-1">
+                        <h6 class="text-uppercase meta-text text-secondary border-bottom border-secondary pb-2 mb-3">Опис товару</h6>
+                        <p class="card-text text-light" style="white-space: pre-wrap; line-height: 1.6;">@Model.Description</p>
+                    </div>
+
+                    <!-- Кнопки дій -->
+                    <div class="d-flex gap-3 mt-auto pt-4 border-top border-secondary">
+                        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-light rounded-0 text-uppercase fw-bold px-4" style="letter-spacing: 1px;">
+                            Редагувати
+                        </a>
+                        <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger rounded-0 text-uppercase border-secondary px-4" style="letter-spacing: 1px;">
+                            Видалити
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
