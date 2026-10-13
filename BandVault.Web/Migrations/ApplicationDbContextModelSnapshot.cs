@@ -100,6 +100,9 @@ namespace BandVault.Web.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("FanPrice")
+                        .HasColumnType("numeric");
+
                     b.Property<string>("ImageUrl")
                         .HasColumnType("text");
 
@@ -386,6 +389,12 @@ namespace BandVault.Web.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AvatarUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Bio")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");

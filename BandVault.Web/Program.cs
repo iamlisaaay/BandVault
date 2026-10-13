@@ -1,5 +1,6 @@
 using BandVault.Web.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.Cookies; // <--- ДОДАНО ДЛЯ ЛОГІНУ
 
 namespace BandVault.Web
 {
@@ -8,20 +9,26 @@ namespace BandVault.Web
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-         
 
-    
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-
+            // ============================================
+            // АВТОРИЗАЦІЯ ЧЕРЕЗ COOKIE
+            // ============================================
+            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie(options =>
+                {
+                    options.LoginPath = "/Auth/Login";
+                    options.AccessDeniedPath = "/Auth/AccessDenied";
+                });
 
             // Add services to the container.
             builder.Services.AddControllersWithViews()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-    });
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+                });
 
             var app = builder.Build();
 
@@ -29,13 +36,16 @@ namespace BandVault.Web
             if (!app.Environment.IsDevelopment())
             {
                 app.UseExceptionHandler("/Home/Error");
-                // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
 
             app.UseHttpsRedirection();
             app.UseRouting();
 
+            // ============================================
+            // ОБОВ'ЯЗКОВО UseAuthentication МАЄ БУТИ ДО UseAuthorization
+            // ============================================
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapStaticAssets();
@@ -53,9 +63,11 @@ namespace BandVault.Web
                 var services = scope.ServiceProvider;
                 try
                 {
-                    var context = services.GetRequiredService<BandVault.Web.Data.ApplicationDbContext>();
-                    // Цей метод автоматично заповнить SiteSettings та Tiers, якщо вони порожні
-                    BandVault.Web.Data.DbInitializer.SeedDataAsync(context).Wait();
+                    var context = services.GetRequiredService<ApplicationDbContext>();
+                    var config = services.GetRequiredService<IConfiguration>(); // <--- ОТРИМАЛИ КОНФІГ
+
+                    // Передали обидва параметри в метод SeedDataAsync
+                    DbInitializer.SeedDataAsync(context, config).Wait();
                 }
                 catch (Exception ex)
                 {
@@ -65,7 +77,7 @@ namespace BandVault.Web
             }
             // ============================================
 
-            app.Run(); // Цей рядок уже має бути у тебе в самому кінці
+            app.Run();
         }
     }
 }

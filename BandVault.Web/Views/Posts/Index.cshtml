@@ -1,0 +1,68 @@
+﻿@model IEnumerable<BandVault.Web.Models.Post>
+
+<div class="container my-5">
+    <div class="d-flex justify-content-between align-items-end mb-4 border-bottom border-secondary pb-2">
+        <h3 class="section-title border-0 mb-0 pb-0">Стрічка фан-клубу</h3>
+        @if (ViewBag.IsAdmin)
+        {
+            <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold">+ Написати пост</a>
+        }
+    </div>
+
+    <div class="d-flex flex-column gap-4">
+        @foreach (var post in Model)
+        {
+            <div class="card bg-transparent border-secondary text-white rounded-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <h4 class="card-title fw-bold d-flex align-items-center gap-2">
+                            @post.Title
+                            
+                            <!-- Позначка чернетки -->
+                            @if (!post.IsPublished)
+                            {
+                                <span class="badge bg-secondary text-light border-0 rounded-0" style="font-size: 0.7rem;">ЧЕРНЕТКА</span>
+                            }
+                        </h4>
+                       
+                        @if (post.RequiredTierLevel > 0)
+                        {
+                            <span class="badge bg-warning text-dark border-0 rounded-0 meta-text d-flex align-items-center h-50">
+                                TIER @post.RequiredTierLevel ЕКСКЛЮЗИВ
+                            </span>
+                        }
+                    </div>
+                    <p class="text-secondary meta-text mb-3">Опубліковано: @post.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
+
+                    @if (ViewBag.IsAdmin || ViewBag.UserTier >= post.RequiredTierLevel || post.RequiredTierLevel == 0)
+                    {
+                        <!-- Замість рендерингу всього маркдауну тут показуємо шматок тексту, а повний у Details -->
+                        <p class="card-text text-white-50">
+                            @(post.ContentMarkdown.Length > 150 ? post.ContentMarkdown.Substring(0, 150) + "..." : post.ContentMarkdown)
+                        </p>
+                        <a asp-action="Details" asp-route-id="@post.Id" class="btn btn-sm btn-outline-light rounded-0">Читати далі</a>
+                    }
+                    else
+                    {
+                        <div class="alert alert-dark border-secondary text-center p-4 mt-3 rounded-0" style="background-color: #1a1a1a;">
+                            <h5 class="text-warning mb-2">🔒 Ексклюзивний пост</h5>
+                            <p class="text-white-50 mb-0">
+                                Доступно для підписників <strong>Tier @post.RequiredTierLevel</strong>. 
+                                У вас рівень: Tier @ViewBag.UserTier.
+                            </p>
+                        </div>
+                    }
+                </div>
+                
+               <!-- Показуємо кнопки тільки якщо юзер - адмін І ВІН ЖЕ є автором цього поста -->
+                @if (ViewBag.IsAdmin && post.AuthorId == ViewBag.CurrentUserId)
+                {
+                    <div class="card-footer bg-dark border-secondary d-flex gap-2">
+                        <a asp-action="Edit" asp-route-id="@post.Id" class="btn btn-sm btn-outline-secondary rounded-0">Редагувати</a>
+                        <a asp-action="Delete" asp-route-id="@post.Id" class="btn btn-sm btn-outline-danger rounded-0">Видалити</a>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>

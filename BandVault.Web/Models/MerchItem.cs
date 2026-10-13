@@ -11,6 +11,7 @@ namespace BandVault.Web.Models
 
         [Range(0.01, 100000, ErrorMessage = "Ціна має бути більше 0")]
         public decimal Price { get; set; }
+        public decimal? FanPrice { get; set; }
         public int? StockQuantity { get; set; }
         public string? ImageUrl { get; set; }
 

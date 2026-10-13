@@ -1,0 +1,43 @@
+﻿@model BandVault.Web.Models.Post
+
+<div class="container my-5 w-50">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="mb-0">Редагувати пост</h3>
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary rounded-0">&larr; Назад до стрічки</a>
+    </div>
+    
+    <form asp-action="Edit" method="post">
+        <!-- Обов'язково передаємо ID поста, щоб сервер знав, що саме оновлювати -->
+        <input type="hidden" asp-for="Id" />
+        
+        <div class="mb-3">
+            <label asp-for="Title" class="form-label text-secondary meta-text">ЗАГОЛОВОК</label>
+            <input asp-for="Title" class="form-control bg-dark text-white border-secondary rounded-0" required />
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="RequiredTierLevel" class="form-label text-secondary meta-text">ДОСТУП ДО ПОСТА (TIER)</label>
+            <select asp-for="RequiredTierLevel" class="form-select bg-dark text-white border-secondary rounded-0">
+                <option value="0">Усім підписникам (Tier 0+)</option>
+                <option value="1">Лише Tier 1 і вище</option>
+                <option value="2">Лише Tier 2 і вище</option>
+                <option value="3">Лише Tier 3 і вище</option>
+                <option value="4">Ексклюзив: тільки Tier 4</option>
+            </select>
+        </div>
+
+        <div class="mb-4">
+            <label asp-for="ContentMarkdown" class="form-label text-secondary meta-text">КОНТЕНТ (MARKDOWN)</label>
+            <textarea asp-for="ContentMarkdown" class="form-control bg-dark text-white border-secondary rounded-0" rows="10" required></textarea>
+        </div>
+
+        <div class="form-check mb-4">
+            <input asp-for="IsPublished" class="form-check-input bg-dark border-secondary rounded-0" type="checkbox">
+            <label class="form-check-label text-white" asp-for="IsPublished">
+                Опублікувати одразу
+            </label>
+        </div>
+
+        <button type="submit" class="btn btn-light rounded-0 w-100 fw-bold">ЗБЕРЕГТИ ЗМІНИ</button>
+    </form>
+</div>

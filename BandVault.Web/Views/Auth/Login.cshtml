@@ -1,0 +1,20 @@
+﻿@{
+    ViewData["Title"] = "Вхід у систему";
+}
+
+<div class="container my-5 w-50">
+    <div class="card bg-transparent border-secondary text-white rounded-0 p-5">
+        <h2 class="fw-bold mb-4 text-center">АВТОРИЗАЦІЯ</h2>
+        
+        <form asp-action="Login" method="post">
+            <div class="mb-4">
+                <label class="form-label text-secondary meta-text">ВВЕДІТЬ ВАШ EMAIL</label>
+                <input type="email" name="email" class="form-control bg-dark text-white border-secondary rounded-0 py-2" required placeholder="danchenko_anastasiia@knu.ua" />
+                
+              
+            </div>
+            
+            <button type="submit" class="btn btn-light rounded-0 w-100 fw-bold py-2">УВІЙТИ</button>
+        </form>
+    </div>
+</div>

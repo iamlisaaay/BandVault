@@ -18,29 +18,71 @@
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark bg-black border-bottom border-secondary box-shadow mb-3">
             <div class="container-fluid">
                 <a class="navbar-brand text-white fw-bold" asp-area="" asp-controller="Home" asp-action="Index">BandVault.Web</a>
+
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
+
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
+                    <!-- me-auto виштовхує правий блок до кінця екрану -->
+                    <ul class="navbar-nav me-auto">
+
+                        <!-- 1. ЦІ ВКЛАДКИ БАЧАТЬ УСІ (Навіть гості) -->
                         <li class="nav-item">
                             <a class="nav-link text-light" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
                         </li>
                         <li class="nav-item">
-                    <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Releases" asp-action="Index">Каталог релізів</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Merch" asp-action="Index">Мерч</a>
-                </li>
-                        <li class="nav-item">
-                        <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="SiteSettings" asp-action="Index">Settings</a>
-                    </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-light" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                            <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Merch" asp-action="Index">Мерч</a>
                         </li>
 
+                        <!-- 2. ЦІ ВКЛАДКИ БАЧАТЬ ЛИШЕ ЗАРЕЄСТРОВАНІ -->
+                        @if (User.Identity != null && User.Identity.IsAuthenticated)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Releases" asp-action="Index">Каталог релізів</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Posts" asp-action="Index">Стрічка</a>
+                            </li>
+                        }
+
+                        <!-- 3. ЦІ ВКЛАДКИ БАЧАТЬ ЛИШЕ АДМІНИ -->
+                        @if (User.HasClaim("IsAdmin", "true"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-warning text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="SiteSettings" asp-action="Index">Settings</a>
+                            </li>
+                        }
                     </ul>
+
+                    <!-- ========================================= -->
+                    <!-- ПРАВА ЧАСТИНА: АВАТАРКА АБО КНОПКА "УВІЙТИ" -->
+                    <!-- ========================================= -->
+                    <div class="d-flex align-items-center">
+                        @if (User.Identity != null && User.Identity.IsAuthenticated)
+                        {
+                            <div class="dropdown">
+                                <a href="#" class="d-flex align-items-center link-light text-decoration-none dropdown-toggle" id="dropdownUser" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <img src="@User.FindFirst("AvatarUrl")?.Value" alt="Avatar" width="35" height="35" class="rounded-circle border border-secondary" style="object-fit: cover;">
+                                    <span class="ms-2 meta-text text-uppercase fw-bold" style="font-size: 0.8rem; letter-spacing: 1px;">
+                                        @User.FindFirst("DisplayName")?.Value
+                                    </span>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end text-small shadow rounded-0 border-secondary" aria-labelledby="dropdownUser">
+                                    <!-- Посилання на ВЛАСНИЙ профіль (без ID, бо сервер сам знає, хто ми) -->
+                                    <li><a class="dropdown-item" asp-controller="Profile" asp-action="Index">Мій профіль</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Subscription" asp-action="Index">Моя підписка</a></li>
+                                    <li><hr class="dropdown-divider border-secondary"></li>
+                                    <li><a class="dropdown-item text-danger" asp-controller="Auth" asp-action="Logout">Вийти</a></li>
+                                </ul>
+                            </div>
+                        }
+                        else
+                        {
+                            <a class="btn btn-outline-light btn-sm text-uppercase fw-bold rounded-0 px-4" asp-controller="Auth" asp-action="Login">УВІЙТИ</a>
+                        }
+                    </div>
                 </div>
             </div>
         </nav>
@@ -52,13 +94,14 @@
         </main>
     </div>
 
+
     <footer class="border-top border-secondary footer text-muted mt-5">
         <div class="container py-3">
             &copy; 2026 - BandVault.Web - <a asp-area="" asp-controller="Home" asp-action="Privacy" class="text-secondary">Privacy</a>
         </div>
     </footer>
 
-    <!-- Глобальний аудіо-плеєр -->
+    <!-- аудіо-плеєр -->
     <div id="global-player" data-turbo-permanent class="global-audio-footer bg-black border-top border-secondary shadow-lg py-2">
         <div class="container d-flex align-items-center">
 

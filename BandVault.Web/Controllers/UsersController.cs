@@ -1,0 +1,93 @@
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using BandVault.Web.Data;
+using BandVault.Web.Models;
+
+namespace BandVault.Web.Controllers
+{
+    [Authorize]
+    public class UsersController : Controller
+    {
+        private readonly ApplicationDbContext _context;
+        private readonly IWebHostEnvironment _env;
+
+        public UsersController(ApplicationDbContext context, IWebHostEnvironment env)
+        {
+            _context = context;
+            _env = env;
+        }
+
+        // GET: /Users/Details або /Users/Details/5
+        public async Task<IActionResult> Details(int? id)
+        {
+            User? targetUser;
+            bool isOwnProfile = false;
+
+            var currentEmail = User.Identity?.Name;
+            var currentUser = await _context.Users
+                .Include(u => u.SubscriptionTier)
+                .FirstOrDefaultAsync(u => u.Email == currentEmail);
+
+            if (currentUser == null) return NotFound();
+
+            // Якщо ID не вказано або співпадає з поточним користувачем
+            if (id == null || id == currentUser.Id)
+            {
+                targetUser = currentUser;
+                isOwnProfile = true;
+            }
+            else
+            {
+                // Шукаємо чужий профіль
+                targetUser = await _context.Users
+                    .Include(u => u.SubscriptionTier)
+                    .FirstOrDefaultAsync(u => u.Id == id);
+
+                if (targetUser == null) return NotFound();
+            }
+
+            // Генеруємо заглушку, якщо немає аватарки
+            if (string.IsNullOrEmpty(targetUser.AvatarUrl))
+            {
+                targetUser.AvatarUrl = $"https://via.placeholder.com/150/1a1a1a/ffffff?text={targetUser.DisplayName.Substring(0, 1).ToUpper()}";
+            }
+
+            ViewBag.IsOwnProfile = isOwnProfile;
+            return View(targetUser);
+        }
+
+        // POST: /Users/EditProfile
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditProfile(string displayName, string? bio, IFormFile? avatarFile)
+        {
+            var currentEmail = User.Identity?.Name;
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == currentEmail);
+
+            if (user == null) return NotFound();
+
+            user.DisplayName = displayName;
+            user.Bio = bio;
+
+            // Завантаження нової аватарки
+            if (avatarFile != null && avatarFile.Length > 0)
+            {
+                string fileName = Guid.NewGuid().ToString() + Path.GetExtension(avatarFile.FileName);
+                string uploadPath = Path.Combine(_env.WebRootPath, "images", "avatars");
+                Directory.CreateDirectory(uploadPath);
+
+                using (var stream = new FileStream(Path.Combine(uploadPath, fileName), FileMode.Create))
+                {
+                    await avatarFile.CopyToAsync(stream);
+                }
+                user.AvatarUrl = "/images/avatars/" + fileName;
+            }
+
+            await _context.SaveChangesAsync();
+
+            // Повертаємо на свою ж сторінку після збереження
+            return RedirectToAction(nameof(Details));
+        }
+    }
+}

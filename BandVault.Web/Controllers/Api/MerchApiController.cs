@@ -23,20 +23,29 @@ namespace BandVault.Web.Controllers.Api
             if (page < 1) page = 1;
             if (pageSize < 1) pageSize = 10;
 
-            var merchQuery = _context.MerchItems.Include(m => m.Category).AsQueryable();
+            // Прибираємо .Include(m => m.Category), бо для випадайки нам категорія не потрібна
+            var merchQuery = _context.MerchItems.AsQueryable();
 
-            // Фільтруємо базу, якщо передали текст для пошуку
+            // Фільтруємо базу через ILike (спеціально для PostgreSQL)
             if (!string.IsNullOrWhiteSpace(query))
             {
-                merchQuery = merchQuery.Where(m => m.Title.ToLower().Contains(query.ToLower()));
+                merchQuery = merchQuery.Where(m => EF.Functions.ILike(m.Title, $"%{query}%"));
             }
 
             var totalItems = await merchQuery.CountAsync();
             var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
 
+            // Одразу мапимо в анонімний об'єкт з правильними назвами полів для JS
             var items = await merchQuery
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
+                .Select(m => new
+                {
+                    id = m.Id,
+                    title = m.Title,
+                    price = m.Price,
+                    imageUrl = m.ImageUrl
+                })
                 .ToListAsync();
 
             string? nextLink = page < totalPages
@@ -50,7 +59,7 @@ namespace BandVault.Web.Controllers.Api
                 CurrentPage = page,
                 PageSize = pageSize,
                 NextLink = nextLink,
-                Data = items
+                Data = items // ASP.NET автоматично перетворить це на "data" в JSON
             });
         }
 

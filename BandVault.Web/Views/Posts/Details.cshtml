@@ -1,0 +1,39 @@
+﻿@model BandVault.Web.Models.Post
+
+<div class="container my-5 w-75">
+    <a asp-action="Index" class="btn btn-sm btn-outline-secondary rounded-0 mb-4">&larr; Назад до стрічки</a>
+
+    @if (ViewBag.HasAccess)
+    {
+   
+        <h1 class="fw-bold mb-2 d-flex align-items-center gap-3">
+            @Model.Title
+            @if (!Model.IsPublished)
+            {
+                <span class="badge bg-secondary text-light border-0 rounded-0 fs-6">ЧЕРНЕТКА</span>
+            }
+        </h1>
+        <div class="d-flex justify-content-between border-bottom border-secondary pb-3 mb-4">
+            <span class="text-secondary meta-text">Автор: @(Model.Author?.Email ?? "Офіційна сторінка")</span>
+            <span class="text-secondary meta-text">@Model.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+        </div>
+
+        <div class="post-content fs-5" style="white-space: pre-wrap;">
+            @* Тут у майбутньому підключимо Markdown парсер, зараз просто виводимо текст *@
+            @Model.ContentMarkdown
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-dark border-secondary text-center p-5 mt-4 rounded-0" style="background-color: #1a1a1a;">
+            <h3 class="text-warning mb-3">🔒 Контент закрито</h3>
+            <p class="text-white-50 mb-4">
+                Цей пост доступний лише для членів фан-клубу рівня 
+                <strong class="text-white">Tier @ViewBag.RequiredTier</strong> та вище.
+            </p>
+            <a href="/Subscription" class="btn btn-warning text-dark fw-bold text-uppercase px-4 py-2 rounded-0">
+                Підвищити рівень (Ваш Tier: @ViewBag.UserTier)
+            </a>
+        </div>
+    }
+</div>

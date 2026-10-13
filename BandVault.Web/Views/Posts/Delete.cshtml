@@ -1,0 +1,20 @@
+﻿@model BandVault.Web.Models.Post
+
+<div class="container my-5 w-50">
+    <a asp-action="Index" class="btn btn-sm btn-outline-secondary rounded-0 mb-4">&larr; Назад до стрічки</a>
+
+    <div class="card bg-transparent border-danger text-white rounded-0 p-5 text-center" style="background-color: #1a1a1a !important;">
+        <h2 class="text-danger fw-bold mb-3">ВИДАЛЕННЯ ПОСТА</h2>
+        <p class="fs-5 mb-4 text-white-50">Ви дійсно хочете назавжди видалити цей запис?</p>
+        
+        <h4 class="text-white mb-5">"@Model.Title"</h4>
+        
+        <form asp-action="Delete" method="post">
+            <input type="hidden" asp-for="Id" />
+            <div class="d-flex justify-content-center gap-3">
+                <a asp-action="Index" class="btn btn-outline-secondary rounded-0 px-4 py-2">СКАСУВАТИ</a>
+                <button type="submit" class="btn btn-danger rounded-0 px-4 py-2 fw-bold">ТАК, ВИДАЛИТИ</button>
+            </div>
+        </form>
+    </div>
+</div>

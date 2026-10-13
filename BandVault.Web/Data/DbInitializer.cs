@@ -1,13 +1,13 @@
 ﻿using BandVault.Web.Models;
 using Microsoft.EntityFrameworkCore;
-
+using Microsoft.Extensions.Configuration; 
 namespace BandVault.Web.Data
 {
     public static class DbInitializer
     {
-        public static async Task SeedDataAsync(ApplicationDbContext context)
+        public static async Task SeedDataAsync(ApplicationDbContext context, IConfiguration config)
         {
-            // 1. Додаємо налаштування сайту (SiteSettings)
+            
             if (!await context.SiteSettings.AnyAsync())
             {
                 context.SiteSettings.AddRange(
@@ -61,7 +61,7 @@ namespace BandVault.Web.Data
                     new TierFeature { TierId = tiers[0].Id, Description = "Доступ до закритих новин" },
                     new TierFeature { TierId = tiers[0].Id, Description = "Участь у розіграшах мерчу" },
 
-                    // Фічі для INSIDER (Level 2)
+ 
                     new TierFeature { TierId = tiers[1].Id, Description = "Доступ до закритих новин" },
                     new TierFeature { TierId = tiers[1].Id, Description = "Ранній доступ до квитків" },
                     new TierFeature { TierId = tiers[1].Id, Description = "Ексклюзивні демо-записи" },
@@ -71,8 +71,33 @@ namespace BandVault.Web.Data
                     new TierFeature { TierId = tiers[2].Id, Description = "Щомісячний дзвінок з гуртом" },
                     new TierFeature { TierId = tiers[2].Id, Description = "Безкоштовна VIP-футболка щороку" }
                 );
-
                 await context.SaveChangesAsync();
+            }
+            // 1. Читаємо пошту адміна з appsettings.json
+            string superAdminEmail = config["AdminSettings:SuperAdminEmail"] ?? "admin@bandvault.com";
+
+                // 2. Якщо такого користувача ще немає - створюємо
+                if (!await context.Users.AnyAsync(u => u.Email == superAdminEmail))
+                {
+                    // Шукаємо найвищий рівень підписки (наприклад, Tier 4)
+                    var highestTier = await context.SubscriptionTiers
+                        .OrderByDescending(t => t.Level)
+                        .FirstOrDefaultAsync();
+
+                    int tierId = highestTier != null ? highestTier.Id : 0;
+
+                    var superAdmin = new User
+                    {
+                        Email = superAdminEmail,
+                        DisplayName = superAdminEmail.Split('@')[0],
+                        IsAdmin = true,
+                        CreatedAt = DateTime.UtcNow,
+                        SubscriptionTierId = tierId
+                    };
+
+                    context.Users.Add(superAdmin);
+
+                    await context.SaveChangesAsync();
             }
         }
     }
