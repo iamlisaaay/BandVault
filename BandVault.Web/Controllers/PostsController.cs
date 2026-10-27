@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering; // Додано для SelectList
 using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
 using BandVault.Web.Models;
@@ -17,20 +18,20 @@ namespace BandVault.Web.Controllers
         }
 
         // GET: Posts
-        // GET: Posts
         public async Task<IActionResult> Index()
         {
             var currentUserEmail = User.Identity?.Name;
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == currentUserEmail);
+            var user = await _context.Users.Include(u => u.SubscriptionTier).FirstOrDefaultAsync(u => u.Email == currentUserEmail);
 
-            ViewBag.IsAdmin = user?.IsAdmin ?? false;
-            ViewBag.UserTier = user?.SubscriptionTierId ?? 0;
+            bool isAdmin = user?.IsAdmin ?? false;
+            ViewBag.IsAdmin = isAdmin;
+            ViewBag.UserTier = user?.SubscriptionTier?.Level ?? 0;
             ViewBag.CurrentUserId = user?.Id ?? 0;
 
             var posts = await _context.Posts
                 .Include(p => p.Author)
-                // НОВИЙ РЯДОК: Показуємо тільки опубліковані пости, АБО чернетки, але тільки їхньому автору
-                .Where(p => p.IsPublished || (user != null && p.AuthorId == user.Id))
+                // Адмін бачить усі пости (навіть чернетки інших). Звичайні юзери бачать тільки опубліковані, або свої чернетки.
+                .Where(p => isAdmin || p.IsPublished || (user != null && p.AuthorId == user.Id))
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
 
@@ -49,12 +50,12 @@ namespace BandVault.Web.Controllers
             if (post == null) return NotFound();
 
             var currentUserEmail = User.Identity?.Name;
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == currentUserEmail);
+            var user = await _context.Users.Include(u => u.SubscriptionTier).FirstOrDefaultAsync(u => u.Email == currentUserEmail);
 
             bool isAdmin = user?.IsAdmin ?? false;
-            int userTier = user?.SubscriptionTierId ?? 0;
+            int userTier = user?.SubscriptionTier?.Level ?? 0;
 
-            // Адміни бачать усе; пости 0 рівня бачать усі; інакше порівнюємо тір юзера з вимогою
+            // ГАРАНТІЯ ДОСТУПУ: Адміни завжди мають доступ. Інакше - перевіряємо рівень.
             bool hasAccess = isAdmin || post.RequiredTierLevel == 0 || userTier >= post.RequiredTierLevel;
 
             ViewBag.HasAccess = hasAccess;
@@ -73,6 +74,17 @@ namespace BandVault.Web.Controllers
 
             if (user == null || !user.IsAdmin)
                 return Forbid();
+
+            // ДІСТАЄМО ТІРИ З БАЗИ ДЛЯ ВИТЯЖНОГО СПИСКУ
+            var tiers = await _context.SubscriptionTiers.OrderBy(t => t.Level).ToListAsync();
+            // Створюємо список, додаючи базовий варіант "Усім підписникам (Tier 0+)"
+            var tierOptions = new List<SelectListItem>
+            {
+                new SelectListItem { Value = "0", Text = "Усім підписникам (Tier 0+)" }
+            };
+            tierOptions.AddRange(tiers.Select(t => new SelectListItem { Value = t.Level.ToString(), Text = $"Лише Tier {t.Level} ({t.Name}) і вище" }));
+
+            ViewBag.Tiers = tierOptions;
 
             return View();
         }
@@ -113,6 +125,16 @@ namespace BandVault.Web.Controllers
             {
                 return Forbid();
             }
+
+            // ДІСТАЄМО ТІРИ З БАЗИ ДЛЯ ВИТЯЖНОГО СПИСКУ
+            var tiers = await _context.SubscriptionTiers.OrderBy(t => t.Level).ToListAsync();
+            var tierOptions = new List<SelectListItem>
+            {
+                new SelectListItem { Value = "0", Text = "Усім підписникам (Tier 0+)" }
+            };
+            tierOptions.AddRange(tiers.Select(t => new SelectListItem { Value = t.Level.ToString(), Text = $"Лише Tier {t.Level} ({t.Name}) і вище" }));
+
+            ViewBag.Tiers = tierOptions;
 
             return View(post);
         }

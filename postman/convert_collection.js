@@ -66,7 +66,17 @@ const collection = {
           path: ["api", "merch"]
         }
       },
-      event: [],
+      event: [
+        {
+          listen: "test",
+          script: {
+            type: "text/javascript",
+            exec: [
+              "pm.test(\"Status code is 200 OK\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ],
       response: []
     },
     {
@@ -104,7 +114,13 @@ const collection = {
         header: [],
         body: {
           mode: "raw",
-          raw: "",
+     
+          raw: JSON.stringify({
+            title: "",
+            description: "",
+            price: -5,
+            categoryId: 1
+          }, null, 2),
           options: {
             raw: {
               language: "json"
@@ -162,7 +178,17 @@ const collection = {
           path: ["api", "merch"]
         }
       },
-      event: [],
+      event: [
+        {
+          listen: "test",
+          script: {
+            type: "text/javascript",
+            exec: [
+              "pm.test(\"Status code is 201 Created\", function () { pm.response.to.have.status(201); });"
+            ]
+          }
+        }
+      ],
       response: []
     }
   ]

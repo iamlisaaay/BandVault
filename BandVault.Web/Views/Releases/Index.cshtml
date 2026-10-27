@@ -3,9 +3,12 @@
 <div class="container my-5">
     <div class="d-flex justify-content-between align-items-end mb-4 border-bottom border-secondary pb-2">
         <h3 class="section-title border-0 mb-0 pb-0">Каталог релізів</h3>
-        <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold" style="letter-spacing: 1px;">
-            + Додати реліз
-        </a>
+        @if (User.HasClaim("IsAdmin", "true"))
+        {
+            <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold" style="letter-spacing: 1px;">
+                + Додати реліз
+            </a>
+        }
     </div>
 
     <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
@@ -35,10 +38,13 @@
                         <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-outline-light w-100 rounded-0 text-uppercase" style="font-size: 0.8rem; letter-spacing: 1px;">
                             Відкрити
                         </a>
-                        <div class="d-flex gap-2">
-                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary w-50 rounded-0">Ред.</a>
-                            <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger w-50 rounded-0 border-secondary text-secondary">Вид.</a>
-                        </div>
+                        @if (User.HasClaim("IsAdmin", "true"))
+                        {
+                            <div class="d-flex gap-2">
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary w-50 rounded-0">Ред.</a>
+                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger w-50 rounded-0 border-secondary text-secondary">Вид.</a>
+                            </div>
+                        }
                     </div>
                 </div>
             </div>

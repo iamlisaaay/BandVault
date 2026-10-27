@@ -1,12 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
 using BandVault.Web.Models;
 
 namespace BandVault.Web.Controllers
 {
-    // TODO: Пізніше розкоментуєш атрибут авторизації, щоб сюди міг зайти тільки адмін
-    // [Authorize] 
+   
+    [Authorize]
     public class SiteSettingsController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -16,14 +17,13 @@ namespace BandVault.Web.Controllers
             _context = context;
         }
 
-        // GET: Сторінка зі списком усіх налаштувань
         public async Task<IActionResult> Index()
         {
-            // Виводимо всі налаштування, відсортовані за алфавітом
+            
             return View(await _context.SiteSettings.OrderBy(s => s.Key).ToListAsync());
         }
 
-        // GET: Відкриваємо форму редагування
+       
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null) return NotFound();
@@ -34,7 +34,7 @@ namespace BandVault.Web.Controllers
             return View(siteSetting);
         }
 
-        // POST: Зберігаємо нове значення в базу
+       
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("Id,Key,Value")] SiteSetting siteSetting)
@@ -53,7 +53,7 @@ namespace BandVault.Web.Controllers
                     if (!SiteSettingExists(siteSetting.Id)) return NotFound();
                     else throw;
                 }
-                // Після успішного збереження повертаємося до таблиці
+                
                 return RedirectToAction(nameof(Index));
             }
             return View(siteSetting);

@@ -31,7 +31,6 @@ namespace BandVault.Web.Controllers
 
             if (currentUser == null) return NotFound();
 
-            // Якщо ID не вказано або співпадає з поточним користувачем
             if (id == null || id == currentUser.Id)
             {
                 targetUser = currentUser;
@@ -39,7 +38,7 @@ namespace BandVault.Web.Controllers
             }
             else
             {
-             
+
                 targetUser = await _context.Users
                     .Include(u => u.SubscriptionTier)
                     .FirstOrDefaultAsync(u => u.Id == id);
@@ -47,13 +46,13 @@ namespace BandVault.Web.Controllers
                 if (targetUser == null) return NotFound();
             }
 
-            
+
             if (string.IsNullOrEmpty(targetUser.AvatarUrl))
             {
                 targetUser.AvatarUrl = $"https://via.placeholder.com/150/1a1a1a/ffffff?text={targetUser.DisplayName.Substring(0, 1).ToUpper()}";
             }
 
-          
+
             if (targetUser.IsAdmin)
             {
                 targetUser.SubscriptionTier = new SubscriptionTier
@@ -80,7 +79,7 @@ namespace BandVault.Web.Controllers
             user.DisplayName = displayName;
             user.Bio = bio;
 
-            // Завантаження нової аватарки
+
             if (avatarFile != null && avatarFile.Length > 0)
             {
                 string fileName = Guid.NewGuid().ToString() + Path.GetExtension(avatarFile.FileName);
@@ -96,8 +95,28 @@ namespace BandVault.Web.Controllers
 
             await _context.SaveChangesAsync();
 
-            // Повертаємо на свою ж сторінку після збереження
             return RedirectToAction(nameof(Details));
+        }
+
+       
+        [HttpPost]
+        public async Task<IActionResult> ChangeTier(int tierId)
+        {
+            var currentEmail = User.Identity?.Name;
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == currentEmail);
+
+            if (user == null) return RedirectToAction("Login", "Auth");
+
+        
+            var tier = await _context.SubscriptionTiers.FindAsync(tierId);
+            if (tier != null)
+            {
+                user.SubscriptionTierId = tier.Id;
+                await _context.SaveChangesAsync();
+            }
+
+          
+            return RedirectToAction("Index", "Home");
         }
     }
 }

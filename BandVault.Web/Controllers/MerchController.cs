@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
@@ -24,23 +25,29 @@ namespace BandVault.Web.Controllers
             return View(merch);
         }
 
-        // ==========================================
+
         // CREATE
-        // ==========================================
+       
+        [Authorize]
         public IActionResult Create()
         {
-            // Передаємо список категорій у View для випадаючого списку
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
+          
             ViewBag.Categories = new SelectList(_context.MerchCategories, "Id", "Name");
             return View();
         }
 
         [HttpPost]
+        [Authorize]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(MerchItem merchItem, IFormFile? imageFile)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             if (ModelState.IsValid)
             {
-                // Завантаження фото
+            
                 if (imageFile != null && imageFile.Length > 0)
                 {
                     string fileName = Guid.NewGuid().ToString() + Path.GetExtension(imageFile.FileName);
@@ -62,11 +69,14 @@ namespace BandVault.Web.Controllers
             return View(merchItem);
         }
 
-        // ==========================================
+
         // EDIT
-        // ==========================================
+    
+        [Authorize]
         public async Task<IActionResult> Edit(int? id)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             if (id == null) return NotFound();
 
             var merchItem = await _context.MerchItems.FindAsync(id);
@@ -77,9 +87,12 @@ namespace BandVault.Web.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, MerchItem merchItem, IFormFile? imageFile)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             if (id != merchItem.Id) return NotFound();
 
             if (ModelState.IsValid)
@@ -92,10 +105,11 @@ namespace BandVault.Web.Controllers
                     existingItem.Title = merchItem.Title;
                     existingItem.Description = merchItem.Description;
                     existingItem.Price = merchItem.Price;
+                    existingItem.FanPrice = merchItem.FanPrice;
                     existingItem.StockQuantity = merchItem.StockQuantity;
                     existingItem.CategoryId = merchItem.CategoryId;
 
-                    // Якщо завантажили нове фото
+                 
                     if (imageFile != null && imageFile.Length > 0)
                     {
                         string fileName = Guid.NewGuid().ToString() + Path.GetExtension(imageFile.FileName);
@@ -122,11 +136,14 @@ namespace BandVault.Web.Controllers
             return View(merchItem);
         }
 
-        // ==========================================
+        
         // DELETE
-        // ==========================================
+   
+        [Authorize]
         public async Task<IActionResult> Delete(int? id)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             if (id == null) return NotFound();
 
             var merchItem = await _context.MerchItems
@@ -139,9 +156,12 @@ namespace BandVault.Web.Controllers
         }
 
         [HttpPost, ActionName("Delete")]
+        [Authorize]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             var merchItem = await _context.MerchItems.FindAsync(id);
             if (merchItem != null)
             {
@@ -151,6 +171,7 @@ namespace BandVault.Web.Controllers
             }
             return RedirectToAction(nameof(Index));
         }
+
         // GET: /Merch/Details/5
         public async Task<IActionResult> Details(int? id)
         {

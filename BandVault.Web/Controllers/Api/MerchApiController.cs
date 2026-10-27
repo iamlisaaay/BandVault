@@ -41,6 +41,7 @@ namespace BandVault.Web.Controllers.Api
             var totalPages = (int)Math.Ceiling(totalItems / (double)actualLimit);
 
             var items = await merchQuery
+                .OrderBy(m => m.Id) // ДОДАНО СОРТУВАННЯ ДЛЯ ПАГІНАЦІЇ
                 .Skip(actualSkip)
                 .Take(actualLimit)
                 .Select(m => new

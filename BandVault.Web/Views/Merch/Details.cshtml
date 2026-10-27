@@ -56,14 +56,17 @@
                     </div>
 
                     <!-- Кнопки дій -->
-                    <div class="d-flex gap-3 mt-auto pt-4 border-top border-secondary">
-                        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-light rounded-0 text-uppercase fw-bold px-4" style="letter-spacing: 1px;">
-                            Редагувати
-                        </a>
-                        <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger rounded-0 text-uppercase border-secondary px-4" style="letter-spacing: 1px;">
-                            Видалити
-                        </a>
-                    </div>
+                    @if (User.HasClaim("IsAdmin", "true"))
+                    {
+                        <div class="d-flex gap-3 mt-auto pt-4 border-top border-secondary">
+                            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-light rounded-0 text-uppercase fw-bold px-4" style="letter-spacing: 1px;">
+                                Редагувати
+                            </a>
+                            <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger rounded-0 text-uppercase border-secondary px-4" style="letter-spacing: 1px;">
+                                Видалити
+                            </a>
+                        </div>
+                    }
                 </div>
             </div>
         </div>

@@ -16,7 +16,7 @@ namespace BandVault.Web.Controllers
 
         public async Task<IActionResult> Index()
         {
-            // 1. ДІСТАЄМО НАЛАШТУВАННЯ САЙТУ З БАЗИ
+          
             var settings = await _context.SiteSettings.ToListAsync();
 
             ViewBag.HeroVideoUrl = settings.FirstOrDefault(s => s.Key == "HeroVideoUrl")?.Value ?? "https://www.youtube.com/watch?v=F0Bfcfv_4k4";
@@ -29,7 +29,7 @@ namespace BandVault.Web.Controllers
             ViewBag.Social_Instagram = settings.FirstOrDefault(s => s.Key == "Social_Instagram")?.Value ?? "#";
             ViewBag.ContactEmail = settings.FirstOrDefault(s => s.Key == "ContactEmail")?.Value ?? "booking@bandvault.com";
 
-            // 2. ІМІТАЦІЯ АВТОРИЗАЦІЇ ТА ПЕРЕВІРКА ПІДПИСКИ
+          
             bool isAuthenticated = User.Identity?.IsAuthenticated ?? false;
             int currentUserTierLevel = 0;
 
@@ -52,14 +52,14 @@ namespace BandVault.Web.Controllers
             ViewBag.IsAuthenticated = isAuthenticated;
             ViewBag.UserTierLevel = currentUserTierLevel;
 
-            // 3. ДІСТАЄМО ТІРИ ДЛЯ МОДАЛЬНОГО ВІКНА (Підтягуємо їхні фічі)
+        
             var tiers = await _context.SubscriptionTiers
                 .Include(t => t.Features)
                 .OrderBy(t => t.Level)
                 .ToListAsync();
             ViewBag.Tiers = tiers;
 
-            // 4. ДІСТАЄМО ПОСТИ-АНОНСИ
+     
             var adminPosts = await _context.Posts
                 .Include(p => p.Author)
                 .Where(p => p.IsPublished && p.Author != null && p.Author.IsAdmin)

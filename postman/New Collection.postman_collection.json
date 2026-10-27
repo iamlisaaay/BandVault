@@ -1,0 +1,163 @@
+﻿{
+  "info": {
+    "name": "New Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "BandVault API",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"SEVERED HOPES SHATTERED INNOCENCE Tote Bag\",\n  \"description\": \"SEVERED HOPES SHATTERED INNOCENCE Tote Bag\",\n  \"price\": 20.00,\n  \"stockQuantity\": 50,\n  \"imageUrl\": \"https://www.pinterest.com/pin/711639178674429249/\",\n  \"categoryId\": 2\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://localhost:7219/api/merch",
+          "protocol": "https",
+          "host": ["localhost"],
+          "port": "7219",
+          "path": ["api", "merch"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 201 Created\", function () { pm.response.to.have.status(201); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Merch List",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://localhost:7219/api/merch",
+          "protocol": "https",
+          "host": ["localhost"],
+          "port": "7219",
+          "path": ["api", "merch"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Merch List (Paginated)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://localhost:7219/api/merch",
+          "protocol": "https",
+          "host": ["localhost"],
+          "port": "7219",
+          "path": ["api", "merch"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Response contains pagination fields\", function () { var jsonData = pm.response.json(); pm.expect(jsonData).to.have.property('totalItems'); pm.expect(jsonData).to.have.property('totalPages'); pm.expect(jsonData).to.have.property('currentPage'); pm.expect(jsonData).to.have.property('pageSize'); pm.expect(jsonData).to.have.property('data'); });",
+              "pm.test(\"Data is an array\", function () { var jsonData = pm.response.json(); pm.expect(jsonData.data).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create Merch(error)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"\",\n  \"description\": \"\",\n  \"price\": -5,\n  \"categoryId\": 1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://localhost:7219/api/merch",
+          "protocol": "https",
+          "host": ["localhost"],
+          "port": "7219",
+          "path": ["api", "merch"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 400 Bad Request\", function () { pm.response.to.have.status(400); });",
+              "pm.test(\"Response has validation errors\", function () { var jsonData = pm.response.json(); pm.expect(jsonData).to.have.property('errors'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Creare",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Band T-Shirt\",\n  \"description\": \"Black t-shirt with logo\",\n  \"price\": 25.00,\n  \"stockQuantity\": 100,\n  \"categoryId\": 1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://localhost:7219/api/merch",
+          "protocol": "https",
+          "host": ["localhost"],
+          "port": "7219",
+          "path": ["api", "merch"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 201 Created\", function () { pm.response.to.have.status(201); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

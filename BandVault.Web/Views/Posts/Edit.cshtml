@@ -17,12 +17,8 @@
 
         <div class="mb-3">
             <label asp-for="RequiredTierLevel" class="form-label text-secondary meta-text">ДОСТУП ДО ПОСТА (TIER)</label>
-            <select asp-for="RequiredTierLevel" class="form-select bg-dark text-white border-secondary rounded-0">
-                <option value="0">Усім підписникам (Tier 0+)</option>
-                <option value="1">Лише Tier 1 і вище</option>
-                <option value="2">Лише Tier 2 і вище</option>
-                <option value="3">Лише Tier 3 і вище</option>
-                <option value="4">Ексклюзив: тільки Tier 4</option>
+         
+            <select asp-for="RequiredTierLevel" class="form-select bg-dark text-white border-secondary rounded-0" asp-items="ViewBag.Tiers">
             </select>
         </div>
 

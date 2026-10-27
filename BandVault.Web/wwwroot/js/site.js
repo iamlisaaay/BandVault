@@ -1,37 +1,49 @@
-﻿// =========================================
+﻿
 // Логіка Аудіо-візуалізатора (Web Audio API)
-// =========================================
+
 document.addEventListener('DOMContentLoaded', () => {
     const audio = document.getElementById('main-audio');
     const canvas = document.getElementById('visualizer');
     
-    // Якщо елементів немає на сторінці — припиняємо роботу
+ 
     if (!audio || !canvas) return;
 
     const ctx = canvas.getContext('2d');
-    
-    // Перевіряємо, чи ми вже не ініціалізували AudioContext 
-    // (важливо для роботи з Turbo, щоб не було дублювання)
+
     if (window.audioContextInitialized) return;
 
     let audioContext;
     let analyser;
     let source;
+    
+ 
+    let accentMode = false;
+    canvas.style.cursor = 'pointer';
+    canvas.title = "Клікніть, щоб змінити колір";
+    
+    canvas.addEventListener('click', () => {
+        accentMode = !accentMode;
+    });
 
     audio.addEventListener('play', () => {
         if (!audioContext) {
             window.audioContextInitialized = true;
             
-            // Створюємо аудіо-контекст
+
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             analyser = audioContext.createAnalyser();
-            analyser.fftSize = 128; // Роздільна здатність спектра
+            analyser.fftSize = 128; 
 
             source = audioContext.createMediaElementSource(audio);
             source.connect(analyser);
             analyser.connect(audioContext.destination);
 
             drawVisualizer();
+        }
+        
+        
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
         }
     });
 
@@ -43,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         analyser.getByteFrequencyData(dataArray);
 
-        // Очищаємо Canvas перед кожним новим кадром
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         const barWidth = (canvas.width / bufferLength) * 2.5;
@@ -52,10 +63,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (let i = 0; i < bufferLength; i++) {
             barHeight = dataArray[i];
-
-            // ЧОРНО-БІЛИЙ ГРАДІЄНТ (чим гучніше, тим біліше)
             const colorVal = Math.min(255, barHeight + 80); 
-            ctx.fillStyle = `rgb(${colorVal}, ${colorVal}, ${colorVal})`;
+            
+           
+            if (accentMode) {
+                ctx.fillStyle = `rgb(${colorVal}, 40, 60)`;
+            } else {
+                ctx.fillStyle = `rgb(${colorVal}, ${colorVal}, ${colorVal})`; 
+            }
             
             const y = (canvas.height - (barHeight / 3)) / 2;
             ctx.fillRect(x, y, barWidth - 1, barHeight / 3);
@@ -65,10 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// =========================================
-// Глобальна функція для запуску треків
-// =========================================
-// Додали 5-й параметр: releaseUrl
+
+//запуск треків
+
 window.playTrack = function (audioUrl, trackTitle, trackArtist, coverUrl, releaseUrl) {
     const audio = document.getElementById('main-audio'); 
     
@@ -78,15 +92,15 @@ window.playTrack = function (audioUrl, trackTitle, trackArtist, coverUrl, releas
 
     if (titleEl) titleEl.innerText = trackTitle;
     
-    // Оновлюємо текст і посилання (href)
+
     if (artistEl) {
         artistEl.innerText = trackArtist;
         if (releaseUrl) {
             artistEl.href = releaseUrl;
-            artistEl.style.pointerEvents = 'auto'; // Робимо клікабельним
+            artistEl.style.pointerEvents = 'auto'; 
         } else {
             artistEl.removeAttribute('href');
-            artistEl.style.pointerEvents = 'none'; // Вимикаємо клік, якщо посилання немає
+            artistEl.style.pointerEvents = 'none';
         }
     }
     
@@ -102,5 +116,10 @@ window.playTrack = function (audioUrl, trackTitle, trackArtist, coverUrl, releas
                 console.log("Автозапуск заблоковано.", error);
             });
         }
+    }
+    
+   
+    if (typeof gtag === 'function') {
+        gtag('event', 'play_track', { track_title: trackTitle, artist: trackArtist });
     }
 };

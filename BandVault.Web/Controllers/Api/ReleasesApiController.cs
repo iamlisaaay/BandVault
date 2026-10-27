@@ -33,6 +33,7 @@ namespace BandVault.Web.Controllers.Api
 
             var releases = await _context.Releases
                 .Include(r => r.Genre)
+                .OrderBy(r => r.Id)
                 .Skip(actualSkip)
                 .Take(actualLimit)
                 .ToListAsync();

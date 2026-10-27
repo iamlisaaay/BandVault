@@ -7,7 +7,7 @@ using BandVault.Web.Models;
 
 namespace BandVault.Web.Controllers
 {
-    [Authorize] 
+    [Authorize]
     public class ReleasesController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -34,7 +34,6 @@ namespace BandVault.Web.Controllers
 
             if (release == null) return NotFound();
 
-            // Якщо потрібні якісь адмінські кнопки на сторінці релізу:
             var currentUserEmail = User.Identity?.Name;
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == currentUserEmail);
             ViewBag.IsAdmin = user?.IsAdmin ?? false;
@@ -44,6 +43,8 @@ namespace BandVault.Web.Controllers
 
         public IActionResult Create()
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             ViewBag.Genres = new SelectList(_context.Genres, "Id", "Name");
             return View();
         }
@@ -52,6 +53,8 @@ namespace BandVault.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(Release release, IFormFile coverImage)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             if (ModelState.IsValid)
             {
                 if (coverImage != null && coverImage.Length > 0)
@@ -79,6 +82,8 @@ namespace BandVault.Web.Controllers
 
         public async Task<IActionResult> Edit(int? id)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             if (id == null) return NotFound();
 
             var release = await _context.Releases.FindAsync(id);
@@ -92,6 +97,8 @@ namespace BandVault.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, Release release, IFormFile? coverImage)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             if (id != release.Id) return NotFound();
 
             if (ModelState.IsValid)
@@ -134,6 +141,8 @@ namespace BandVault.Web.Controllers
 
         public async Task<IActionResult> Delete(int? id)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             if (id == null) return NotFound();
 
             var release = await _context.Releases
@@ -149,6 +158,8 @@ namespace BandVault.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             var release = await _context.Releases.FindAsync(id);
             if (release != null)
             {
@@ -161,6 +172,8 @@ namespace BandVault.Web.Controllers
         [HttpPost]
         public async Task<IActionResult> AddTrack(int releaseId, string title, IFormFile audioFile)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             if (audioFile != null && audioFile.Length > 0)
             {
                 string fileName = Guid.NewGuid().ToString() + Path.GetExtension(audioFile.FileName);
@@ -192,6 +205,8 @@ namespace BandVault.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteTrack(int trackId, int releaseId)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             var track = await _context.Tracks.FindAsync(trackId);
             if (track != null)
             {

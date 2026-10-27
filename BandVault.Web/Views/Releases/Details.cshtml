@@ -2,7 +2,7 @@
 
 <div class="container my-5">
     <div class="row g-5">
-        <!-- Обкладинка та інфо -->
+      
         <div class="col-md-4 text-center">
             @if (!string.IsNullOrEmpty(Model.CoverImageUrl))
             {
@@ -23,7 +23,7 @@
             <p class="text-light opacity-75 small text-start mt-4 markdown-content">@Model.Description</p>
         </div>
 
-        <!-- Трекліст та додавання треків -->
+    
         <div class="col-md-8">
             <h3 class="section-title">Трекліст</h3>
             
@@ -38,16 +38,19 @@
                             <div class="d-flex gap-3 align-items-center">
                                 <!-- Виклик плеєра -->
                                <button class="btn-text-muted" style="font-size: 0.8rem;"
-        onclick="playTrack('@track.AudioFileUrl', '@track.Title', '@Model.Title', '@Model.CoverImageUrl', '/Releases/Details/@Model.Id')">
-    ▶ Слухати
-</button>
+                                       onclick="playTrack('@track.AudioFileUrl', '@track.Title', '@Model.Title', '@Model.CoverImageUrl', '/Releases/Details/@Model.Id')">
+                                   ▶ Слухати
+                               </button>
 
-                                <!-- Кнопка видалення треку -->
-                                <form asp-action="DeleteTrack" method="post" class="m-0 p-0" onsubmit="return confirm('Видалити цей трек?');">
-                                    <input type="hidden" name="trackId" value="@track.Id" />
-                                    <input type="hidden" name="releaseId" value="@Model.Id" />
-                                    <button type="submit" class="btn-text-muted text-danger" style="font-size: 0.8rem;">✕</button>
-                                </form>
+                               @if (ViewBag.IsAdmin)
+                               {
+                                   <!-- Кнопка видалення треку -->
+                                   <form asp-action="DeleteTrack" method="post" class="m-0 p-0" onsubmit="return confirm('Видалити цей трек?');">
+                                       <input type="hidden" name="trackId" value="@track.Id" />
+                                       <input type="hidden" name="releaseId" value="@Model.Id" />
+                                       <button type="submit" class="btn-text-muted text-danger" style="font-size: 0.8rem;">✕</button>
+                                   </form>
+                               }
                             </div>
                         </div>
                     }
@@ -58,27 +61,30 @@
                 }
             </div>
 
-            <!-- Форма швидкого додавання MP3 -->
-            <h4 class="section-title" style="font-size: 0.85rem;">Додати новий трек</h4>
-            <div class="p-4 border border-secondary bg-transparent">
-                <form asp-action="AddTrack" enctype="multipart/form-data" class="row g-3 align-items-end">
-                    <input type="hidden" name="releaseId" value="@Model.Id" />
-                    
-                    <div class="col-md-5">
-                        <label class="form-label meta-text mb-1">Назва треку</label>
-                        <input type="text" name="title" class="form-control form-control-dark rounded-0" required />
-                    </div>
-                    
-                    <div class="col-md-5">
-                        <label class="form-label meta-text mb-1">Аудіофайл (MP3)</label>
-                        <input type="file" name="audioFile" class="form-control form-control-dark rounded-0" accept="audio/*" required />
-                    </div>
+            @if (ViewBag.IsAdmin)
+            {
+                <!-- Форма швидкого додавання MP3 -->
+                <h4 class="section-title" style="font-size: 0.85rem;">Додати новий трек</h4>
+                <div class="p-4 border border-secondary bg-transparent">
+                    <form asp-action="AddTrack" enctype="multipart/form-data" class="row g-3 align-items-end">
+                        <input type="hidden" name="releaseId" value="@Model.Id" />
+                        
+                        <div class="col-md-5">
+                            <label class="form-label meta-text mb-1">Назва треку</label>
+                            <input type="text" name="title" class="form-control form-control-dark rounded-0" required />
+                        </div>
+                        
+                        <div class="col-md-5">
+                            <label class="form-label meta-text mb-1">Аудіофайл (MP3)</label>
+                            <input type="file" name="audioFile" class="form-control form-control-dark rounded-0" accept="audio/*" required />
+                        </div>
 
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-light w-100 rounded-0 text-uppercase fw-bold" style="font-size: 0.8rem; height: 38px;">Додати</button>
-                    </div>
-                </form>
-            </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-light w-100 rounded-0 text-uppercase fw-bold" style="font-size: 0.8rem; height: 38px;">Додати</button>
+                        </div>
+                    </form>
+                </div>
+            }
         </div>
     </div>
 </div>

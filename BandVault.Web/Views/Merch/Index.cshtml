@@ -6,19 +6,20 @@
 <div class="container my-5">
     <div class="d-flex justify-content-between align-items-end mb-4 border-bottom border-secondary pb-2">
         <h3 class="section-title border-0 mb-0 pb-0">Каталог мерчу</h3>
-       <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold" style="letter-spacing: 1px;">+ Додати мерч</a>
-      
+        @if (User.HasClaim("IsAdmin", "true"))
+        {
+            <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold" style="letter-spacing: 1px;">+ Додати мерч</a>
+        }
     </div>
 
-    <!-- Блок пошуку (F2: Autocomplete / Живий пошук) -->
+ 
     <div class="position-relative mb-5 w-50 mx-auto">
         <input type="text" id="merchSearchInput" class="form-control bg-transparent border-secondary text-white rounded-0" placeholder="ПОШУК ТОВАРУ (ВІД 3 СИМВОЛІВ)..." autocomplete="off" style="letter-spacing: 1px; font-size: 0.9rem;" />
         
-        <!-- Результати пошуку -->
-        <ul id="searchResults" class="list-group position-absolute w-100 mt-1 rounded-0 border border-secondary" style="display: none; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.5); background-color: #1a1a1a;"></ul>
+       
+        <ul id="searchResults" class="list-group d-none position-absolute w-100 mt-1 rounded-0 border border-secondary" style="z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.5); background-color: #1a1a1a;"></ul>
     </div>
 
-    <!-- Каталог товарів (Таблиця замінена на сітку карток, як у релізах) -->
     <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
         @foreach (var item in Model)
         {
@@ -69,10 +70,13 @@
                         <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-outline-light w-100 rounded-0 text-uppercase" style="font-size: 0.8rem; letter-spacing: 1px;">
                             Деталі
                         </a>
-                        <div class="d-flex gap-2">
-    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary w-50 rounded-0">Ред.</a>
-    <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger w-50 rounded-0 border-secondary text-secondary">Вид.</a>
-</div>
+                        @if (User.HasClaim("IsAdmin", "true"))
+                        {
+                            <div class="d-flex gap-2">
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary w-50 rounded-0">Ред.</a>
+                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger w-50 rounded-0 border-secondary text-secondary">Вид.</a>
+                            </div>
+                        }
                     </div>
                 </div>
             </div>
@@ -121,15 +125,12 @@
     </style>
 
     <script>
-        // Загортаємо логіку у функцію ініціалізації
         function initMerchSearch() {
             const searchInput = document.getElementById('merchSearchInput');
             const searchResults = document.getElementById('searchResults');
 
-            // Якщо елементів немає на цій сторінці - виходимо
             if (!searchInput || !searchResults) return;
 
-            // Захист від подвійного навішування івентів
             if (searchInput.dataset.initialized === "true") return;
             searchInput.dataset.initialized = "true";
 
@@ -161,7 +162,6 @@
                             return response.json();
                         })
                         .then(json => {
-                            // Перевіряємо, чи інпут все ще існує (можливо, юзер уже пішов зі сторінки)
                             if (!document.getElementById('merchSearchInput')) return;
                             if (document.getElementById('merchSearchInput').value.trim().length < 3) return;
 
@@ -205,7 +205,6 @@
                 }, 300);
             });
 
-            // Використовуємо глобальний обробник кліків, щоб уникнути втрати контесту
             document.body.addEventListener('mousedown', function (e) {
                 const results = document.getElementById('searchResults');
                 const input = document.getElementById('merchSearchInput');
@@ -221,19 +220,14 @@
             });
         }
 
-        // 1. Стандартний запуск (якщо сторінка просто вантажиться)
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initMerchSearch);
         } else {
             initMerchSearch();
         }
 
-        // 2. Якщо використовується ASP.NET Pjax / Turbo / htmx
-        // Turbo (Ruby on Rails / Hotwire - часто юзають в .NET)
         document.addEventListener("turbo:load", initMerchSearch);
 
-        // Pjax або інші AJAX-навігатори (коли HTML просто вставляється)
-        // Створюємо MutationObserver, який "слідкує" за появою інпута в DOM
         const observer = new MutationObserver(function(mutations) {
             if (document.getElementById('merchSearchInput') &&
                 document.getElementById('merchSearchInput').dataset.initialized !== "true") {

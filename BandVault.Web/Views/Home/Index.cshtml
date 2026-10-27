@@ -80,6 +80,14 @@
     }
 </style>
 
+<!-- ЗАКРІПЛЕНІ КОНТАКТИ ЗБОКУ (Виправлення C6) -->
+<div class="position-fixed end-0 top-50 translate-middle-y bg-black border border-secondary p-2 d-none d-md-flex flex-column gap-3 shadow-lg" style="z-index: 1040; border-right: none !important;">
+    <a href="@ViewBag.Social_YouTube" target="_blank" class="text-secondary text-decoration-none text-center meta-text" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">YT</a>
+    <a href="@ViewBag.Social_Instagram" target="_blank" class="text-secondary text-decoration-none text-center meta-text" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">IG</a>
+    <a href="@ViewBag.Social_Discord" target="_blank" class="text-secondary text-decoration-none text-center meta-text" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">DS</a>
+    <a href="mailto:@ViewBag.ContactEmail" class="text-white text-decoration-none text-center meta-text" title="@ViewBag.ContactEmail">✉</a>
+</div>
+
 <!-- 1. HERO СЕКЦІЯ З ВІДЕО -->
 <div class="group-hero mb-5">
     @if (!string.IsNullOrEmpty(videoId))
@@ -110,7 +118,7 @@
                 <button type="button" class="btn btn-outline-light rounded-0 text-uppercase px-5 py-2 me-3" style="letter-spacing: 2px;" data-bs-toggle="modal" data-bs-target="#tierModal">
                     Стати учасником
                 </button>
-                <a href="/Identity/Account/Login" class="text-secondary text-uppercase text-decoration-none" style="letter-spacing: 1px; font-size: 0.9rem; transition: color 0.3s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">
+                <a href="/Auth/Login" class="text-secondary text-uppercase text-decoration-none" style="letter-spacing: 1px; font-size: 0.9rem; transition: color 0.3s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">
                     Авторизуватись
                 </a>
             }
@@ -148,7 +156,7 @@
                             }
                             else
                             {
-                                <a href="/Tiers/Upgrade" class="btn btn-sm btn-outline-secondary rounded-0 text-uppercase mx-auto">Підвищити рівень</a>
+                                <button class="btn btn-sm btn-outline-secondary rounded-0 text-uppercase mx-auto" data-bs-toggle="modal" data-bs-target="#tierModal">Підвищити рівень</button>
                             }
                         </div>
                     </div>
@@ -257,9 +265,12 @@
                                     }
                                 </ul>
 
-                                <a href="/Identity/Account/Register?tierId=@tier.Id" class="btn @(tier.IsRecommended ? "btn-light" : "btn-outline-light") rounded-0 text-uppercase fw-bold w-100 mt-auto py-2" style="letter-spacing: 1px;">
-                                    Обрати
-                                </a>
+                                <form asp-controller="Users" asp-action="ChangeTier" method="post" class="mt-auto">
+                                    <input type="hidden" name="tierId" value="@tier.Id" />
+                                    <button type="submit" class="btn @(tier.IsRecommended ? "btn-light" : "btn-outline-light") rounded-0 text-uppercase fw-bold w-100 py-2" style="letter-spacing: 1px;">
+                                        Обрати
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>
