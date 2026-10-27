@@ -16,33 +16,39 @@ namespace BandVault.Web.Controllers.Api
             _context = context;
         }
 
-        // GET: api/releases?page=1&pageSize=10
+        // GET: api/releases
         [HttpGet]
-        public async Task<IActionResult> GetReleases([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetReleases(
+            [FromQuery] int? skip = null,
+            [FromQuery] int? limit = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            if (page < 1) page = 1;
-            if (pageSize < 1) pageSize = 10;
+            int actualLimit = limit ?? (pageSize < 1 ? 10 : pageSize);
+            int actualSkip = skip ?? ((page < 1 ? 0 : page - 1) * actualLimit);
+            int currentPage = (actualSkip / actualLimit) + 1;
 
             var totalItems = await _context.Releases.CountAsync();
-            var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+            var totalPages = (int)Math.Ceiling(totalItems / (double)actualLimit);
 
-           
             var releases = await _context.Releases
                 .Include(r => r.Genre)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
+                .Skip(actualSkip)
+                .Take(actualLimit)
                 .ToListAsync();
 
-            string? nextLink = page < totalPages
-                ? Url.Action(nameof(GetReleases), new { page = page + 1, pageSize })
+            string? nextLink = (actualSkip + actualLimit) < totalItems
+                ? Url.Action(nameof(GetReleases), new { skip = actualSkip + actualLimit, limit = actualLimit })
                 : null;
 
             return Ok(new
             {
                 TotalItems = totalItems,
                 TotalPages = totalPages,
-                CurrentPage = page,
-                PageSize = pageSize,
+                CurrentPage = currentPage,
+                PageSize = actualLimit,
+                Skip = actualSkip,
+                Limit = actualLimit,
                 NextLink = nextLink,
                 Data = releases
             });
@@ -52,7 +58,6 @@ namespace BandVault.Web.Controllers.Api
         [HttpGet("{id}")]
         public async Task<IActionResult> GetRelease(int id)
         {
-         
             var release = await _context.Releases
                 .Include(r => r.Genre)
                 .Include(r => r.Tracks)

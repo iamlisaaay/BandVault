@@ -16,29 +16,33 @@ namespace BandVault.Web.Controllers.Api
             _context = context;
         }
 
-        // GET: api/merch?query=Tote&page=1&pageSize=10
+        // GET: api/merch
         [HttpGet]
-        public async Task<IActionResult> GetMerch([FromQuery] string? query = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetMerch(
+            [FromQuery] string? query = null,
+            [FromQuery] int? skip = null,
+            [FromQuery] int? limit = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            if (page < 1) page = 1;
-            if (pageSize < 1) pageSize = 10;
+            // Пріоритет віддається skip/limit. Якщо їх немає - використовуються page/pageSize
+            int actualLimit = limit ?? (pageSize < 1 ? 10 : pageSize);
+            int actualSkip = skip ?? ((page < 1 ? 0 : page - 1) * actualLimit);
+            int currentPage = (actualSkip / actualLimit) + 1;
 
-            // Прибираємо .Include(m => m.Category), бо для випадайки нам категорія не потрібна
             var merchQuery = _context.MerchItems.AsQueryable();
 
-            // Фільтруємо базу через ILike (спеціально для PostgreSQL)
             if (!string.IsNullOrWhiteSpace(query))
             {
                 merchQuery = merchQuery.Where(m => EF.Functions.ILike(m.Title, $"%{query}%"));
             }
 
             var totalItems = await merchQuery.CountAsync();
-            var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+            var totalPages = (int)Math.Ceiling(totalItems / (double)actualLimit);
 
-            // Одразу мапимо в анонімний об'єкт з правильними назвами полів для JS
             var items = await merchQuery
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
+                .Skip(actualSkip)
+                .Take(actualLimit)
                 .Select(m => new
                 {
                     id = m.Id,
@@ -48,19 +52,38 @@ namespace BandVault.Web.Controllers.Api
                 })
                 .ToListAsync();
 
-            string? nextLink = page < totalPages
-                ? Url.Action(nameof(GetMerch), new { query, page = page + 1, pageSize })
+            string? nextLink = (actualSkip + actualLimit) < totalItems
+                ? Url.Action(nameof(GetMerch), new { query, skip = actualSkip + actualLimit, limit = actualLimit })
                 : null;
 
             return Ok(new
             {
                 TotalItems = totalItems,
                 TotalPages = totalPages,
-                CurrentPage = page,
-                PageSize = pageSize,
+                CurrentPage = currentPage,
+                PageSize = actualLimit,
+                Skip = actualSkip,
+                Limit = actualLimit,
                 NextLink = nextLink,
-                Data = items // ASP.NET автоматично перетворить це на "data" в JSON
+                Data = items
             });
+        }
+
+        // Ендпоінт для задачі F2 (Autocomplete категорій у формах)
+        [HttpGet("categories")]
+        public async Task<IActionResult> SearchCategories([FromQuery] string? term)
+        {
+            var query = _context.MerchCategories.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(term))
+            {
+                query = query.Where(c => EF.Functions.ILike(c.Name, $"%{term}%"));
+            }
+
+            var results = await query
+                .Select(c => new { id = c.Id, text = c.Name })
+                .ToListAsync();
+
+            return Ok(results);
         }
 
         // GET: api/merch/5

@@ -39,7 +39,7 @@ namespace BandVault.Web.Controllers
             }
             else
             {
-                // Шукаємо чужий профіль
+             
                 targetUser = await _context.Users
                     .Include(u => u.SubscriptionTier)
                     .FirstOrDefaultAsync(u => u.Id == id);
@@ -47,10 +47,20 @@ namespace BandVault.Web.Controllers
                 if (targetUser == null) return NotFound();
             }
 
-            // Генеруємо заглушку, якщо немає аватарки
+            
             if (string.IsNullOrEmpty(targetUser.AvatarUrl))
             {
                 targetUser.AvatarUrl = $"https://via.placeholder.com/150/1a1a1a/ffffff?text={targetUser.DisplayName.Substring(0, 1).ToUpper()}";
+            }
+
+          
+            if (targetUser.IsAdmin)
+            {
+                targetUser.SubscriptionTier = new SubscriptionTier
+                {
+                    Level = 999,
+                    Name = "ALL ACCESS"
+                };
             }
 
             ViewBag.IsOwnProfile = isOwnProfile;

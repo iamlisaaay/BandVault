@@ -56,33 +56,34 @@
                         }
                     </ul>
 
-                    <!-- ========================================= -->
+                 
                     <!-- ПРАВА ЧАСТИНА: АВАТАРКА АБО КНОПКА "УВІЙТИ" -->
-                    <!-- ========================================= -->
+                    
                     <div class="d-flex align-items-center">
-                        @if (User.Identity != null && User.Identity.IsAuthenticated)
-                        {
-                            <div class="dropdown">
-                                <a href="#" class="d-flex align-items-center link-light text-decoration-none dropdown-toggle" id="dropdownUser" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <img src="@User.FindFirst("AvatarUrl")?.Value" alt="Avatar" width="35" height="35" class="rounded-circle border border-secondary" style="object-fit: cover;">
-                                    <span class="ms-2 meta-text text-uppercase fw-bold" style="font-size: 0.8rem; letter-spacing: 1px;">
-                                        @User.FindFirst("DisplayName")?.Value
-                                    </span>
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end text-small shadow rounded-0 border-secondary" aria-labelledby="dropdownUser">
-                                    <!-- Посилання на ВЛАСНИЙ профіль (без ID, бо сервер сам знає, хто ми) -->
-                                    <li><a class="dropdown-item" asp-controller="Profile" asp-action="Index">Мій профіль</a></li>
-                                    <li><a class="dropdown-item" asp-controller="Subscription" asp-action="Index">Моя підписка</a></li>
-                                    <li><hr class="dropdown-divider border-secondary"></li>
-                                    <li><a class="dropdown-item text-danger" asp-controller="Auth" asp-action="Logout">Вийти</a></li>
-                                </ul>
-                            </div>
-                        }
-                        else
-                        {
-                            <a class="btn btn-outline-light btn-sm text-uppercase fw-bold rounded-0 px-4" asp-controller="Auth" asp-action="Login">УВІЙТИ</a>
-                        }
-                    </div>
+    @if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+       
+            var layoutAvatarUrl = User.FindFirst("AvatarUrl")?.Value;
+            var layoutDisplayName = User.FindFirst("DisplayName")?.Value ?? "U";
+            if (string.IsNullOrEmpty(layoutAvatarUrl))
+            {
+                layoutAvatarUrl = $"https://via.placeholder.com/150/1a1a1a/ffffff?text={layoutDisplayName.Substring(0, 1).ToUpper()}";
+            }
+        
+
+      
+        <a asp-controller="Users" asp-action="Details" class="d-flex align-items-center link-light text-decoration-none">
+            <img src="@layoutAvatarUrl" alt="Avatar" width="35" height="35" class="rounded-circle border border-secondary" style="object-fit: cover;">
+            <span class="ms-2 meta-text text-uppercase fw-bold" style="font-size: 0.8rem; letter-spacing: 1px;">
+                @layoutDisplayName
+            </span>
+        </a>
+    }
+    else
+    {
+        <a class="btn btn-outline-light btn-sm text-uppercase fw-bold rounded-0 px-4" asp-controller="Auth" asp-action="Login">УВІЙТИ</a>
+    }
+</div>
                 </div>
             </div>
         </nav>

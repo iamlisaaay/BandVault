@@ -1,8 +1,8 @@
-﻿using Microsoft.AspNetCore.Authentication;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using BandVault.Web.Data;
 using BandVault.Web.Models;
 
@@ -22,21 +22,25 @@ namespace BandVault.Web.Controllers
         {
             return View();
         }
+
         [HttpPost]
         public async Task<IActionResult> Login(string email)
         {
-            if (string.IsNullOrWhiteSpace(email)) return View();
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return View();
+            }
 
             string userEmail = email.Trim().ToLower();
 
-            // Перевіряємо, чи це ти (або дефолтний адмін з appsettings)
+            // Перевіряємо, чи це ти (суперадмін)
             bool isSuperAdmin = userEmail == "danchenko_anastasiia@knu.ua";
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userEmail);
 
             if (user == null)
             {
-                // ВИПРАВЛЕННЯ: Дістаємо реальні ID з бази замість 0 та 4
+                // Дістаємо реальні ID з бази замість хардкоду
                 var lowestTier = await _context.SubscriptionTiers.OrderBy(t => t.Level).FirstOrDefaultAsync();
                 var highestTier = await _context.SubscriptionTiers.OrderByDescending(t => t.Level).FirstOrDefaultAsync();
 
@@ -53,7 +57,7 @@ namespace BandVault.Web.Controllers
                 };
 
                 _context.Users.Add(user);
-                await _context.SaveChangesAsync(); // Тепер база прийме правильні ID
+                await _context.SaveChangesAsync();
             }
             else if (isSuperAdmin && !user.IsAdmin)
             {
@@ -61,20 +65,23 @@ namespace BandVault.Web.Controllers
                 var highestTier = await _context.SubscriptionTiers.OrderByDescending(t => t.Level).FirstOrDefaultAsync();
 
                 user.IsAdmin = true;
-                if (highestTier != null) user.SubscriptionTierId = highestTier.Id;
+                if (highestTier != null)
+                {
+                    user.SubscriptionTierId = highestTier.Id;
+                }
 
                 await _context.SaveChangesAsync();
             }
 
-            // Створюємо "паспорт" сесії
+            // Створюємо "паспорт" сесії (Cookies)
             var claims = new List<Claim>
-    {
-        new Claim(ClaimTypes.Name, user.Email),
-        new Claim("UserId", user.Id.ToString()),
-        new Claim("DisplayName", user.DisplayName ?? user.Email.Split('@')[0]),
-        new Claim("IsAdmin", user.IsAdmin.ToString().ToLower()),
-        new Claim("AvatarUrl", user.AvatarUrl ?? "https://via.placeholder.com/150/1a1a1a/ffffff?text=" + user.Email[0].ToString().ToUpper())
-    };
+            {
+                new Claim(ClaimTypes.Name, user.Email),
+                new Claim("UserId", user.Id.ToString()),
+                new Claim("DisplayName", user.DisplayName ?? user.Email.Split('@')[0]),
+                new Claim("IsAdmin", user.IsAdmin.ToString().ToLower()),
+                new Claim("AvatarUrl", user.AvatarUrl ?? $"https://via.placeholder.com/150/1a1a1a/ffffff?text={user.Email.Substring(0, 1).ToUpper()}")
+            };
 
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
@@ -83,6 +90,7 @@ namespace BandVault.Web.Controllers
 
             return RedirectToAction("Index", "Home");
         }
+
         public async Task<IActionResult> Logout()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);

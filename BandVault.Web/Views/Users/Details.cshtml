@@ -5,20 +5,20 @@
         <div class="d-flex align-items-start gap-4 flex-wrap">
             <!-- Аватарка -->
             <img src="@Model.AvatarUrl" alt="Avatar" class="rounded-circle border border-secondary" style="width: 120px; height: 120px; object-fit: cover;">
-            
+
             <div class="flex-grow-1">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <h2 class="fw-bold mb-0">@Model.DisplayName</h2>
-                    @if (Model.SubscriptionTier != null && Model.SubscriptionTier.Level > 0)
+                    @if (Model.IsAdmin)
+                    {
+                        <span class="badge bg-danger text-white border-0 rounded-0 meta-text px-3 py-2 mt-1">
+                            ADMIN
+                        </span>
+                    }
+                    else if (Model.SubscriptionTier != null && Model.SubscriptionTier.Level > 0)
                     {
                         <span class="badge bg-warning text-dark border-0 rounded-0 meta-text px-3 py-2 mt-1">
                             TIER @Model.SubscriptionTier.Level: @Model.SubscriptionTier.Name
-                        </span>
-                    }
-                    else if (Model.IsAdmin)
-                    {
-                         <span class="badge bg-danger text-white border-0 rounded-0 meta-text px-3 py-2 mt-1">
-                            OFFICIAL ACCOUNT
                         </span>
                     }
                     else
@@ -28,9 +28,9 @@
                         </span>
                     }
                 </div>
-                
+
                 <p class="text-secondary meta-text mb-4">В клубі з: @Model.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</p>
-                
+
                 <div class="bio-section p-3 bg-dark border border-secondary">
                     <h6 class="text-secondary meta-text mb-2">ПРО СЕБЕ:</h6>
                     <p class="mb-0 text-white-50" style="white-space: pre-wrap;">@(string.IsNullOrEmpty(Model.Bio) ? "Користувач ще нічого не розповів про себе." : Model.Bio)</p>
@@ -38,11 +38,19 @@
             </div>
         </div>
 
-        <!-- ФОРМА РЕДАГУВАННЯ (тільки для свого профілю) -->
+        <!-- КЕРУВАННЯ ПРОФІЛЕМ (тільки для свого профілю) -->
         @if (ViewBag.IsOwnProfile)
         {
             <hr class="border-secondary my-5">
-            <h4 class="fw-bold mb-4">Налаштування профілю</h4>
+            <h4 class="fw-bold mb-4">Керування акаунтом</h4>
+
+            <!-- КНОПКИ ПІДПИСКИ ТА ВИХОДУ -->
+            <div class="d-flex gap-3 mb-5">
+                <a asp-controller="Subscription" asp-action="Index" class="btn btn-outline-warning rounded-0 fw-bold flex-grow-1">МОЯ ПІДПИСКА</a>
+                <a asp-controller="Auth" asp-action="Logout" class="btn btn-outline-danger rounded-0 fw-bold flex-grow-1">ВИЙТИ З АКАУНТА</a>
+            </div>
+
+            <h5 class="fw-bold mb-3">Налаштування профілю</h5>
             <form asp-action="EditProfile" enctype="multipart/form-data" method="post">
                 <div class="mb-3">
                     <label class="form-label text-secondary meta-text">ІМ'Я НА САЙТІ (DISPLAY NAME)</label>

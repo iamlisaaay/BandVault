@@ -7,7 +7,8 @@ namespace BandVault.Web.Data
     {
         public static async Task SeedDataAsync(ApplicationDbContext context, IConfiguration config)
         {
-            
+            await context.Database.MigrateAsync();
+
             if (!await context.SiteSettings.AnyAsync())
             {
                 context.SiteSettings.AddRange(
