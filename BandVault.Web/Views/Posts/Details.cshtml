@@ -5,7 +5,6 @@
 
     @if (ViewBag.HasAccess)
     {
-   
         <h1 class="fw-bold mb-2 d-flex align-items-center gap-3">
             @Model.Title
             @if (!Model.IsPublished)
@@ -31,7 +30,8 @@
                 Цей пост доступний лише для членів фан-клубу рівня 
                 <strong class="text-white">Tier @ViewBag.RequiredTier</strong> та вище.
             </p>
-            <a href="/Subscription" class="btn btn-warning text-dark fw-bold text-uppercase px-4 py-2 rounded-0">
+            <!-- Фікс B6 -->
+            <a href="/#join" class="btn btn-warning text-dark fw-bold text-uppercase px-4 py-2 rounded-0">
                 Підвищити рівень (Ваш Tier: @ViewBag.UserTier)
             </a>
         </div>

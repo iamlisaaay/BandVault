@@ -16,7 +16,6 @@ namespace BandVault.Web.Controllers
 
         public async Task<IActionResult> Index()
         {
-          
             var settings = await _context.SiteSettings.ToListAsync();
 
             ViewBag.HeroVideoUrl = settings.FirstOrDefault(s => s.Key == "HeroVideoUrl")?.Value ?? "https://www.youtube.com/watch?v=F0Bfcfv_4k4";
@@ -29,7 +28,6 @@ namespace BandVault.Web.Controllers
             ViewBag.Social_Instagram = settings.FirstOrDefault(s => s.Key == "Social_Instagram")?.Value ?? "#";
             ViewBag.ContactEmail = settings.FirstOrDefault(s => s.Key == "ContactEmail")?.Value ?? "booking@bandvault.com";
 
-          
             bool isAuthenticated = User.Identity?.IsAuthenticated ?? false;
             int currentUserTierLevel = 0;
 
@@ -42,7 +40,13 @@ namespace BandVault.Web.Controllers
                 if (currentUser != null)
                 {
                     ViewBag.DaysJoined = (int)(DateTime.UtcNow - currentUser.CreatedAt).TotalDays;
-                    if (currentUser.SubscriptionTier != null)
+
+                    // Фікс B6: Адмін завжди отримує максимальний Tier для перегляду новин
+                    if (currentUser.IsAdmin)
+                    {
+                        currentUserTierLevel = 999;
+                    }
+                    else if (currentUser.SubscriptionTier != null)
                     {
                         currentUserTierLevel = currentUser.SubscriptionTier.Level;
                     }
@@ -52,14 +56,12 @@ namespace BandVault.Web.Controllers
             ViewBag.IsAuthenticated = isAuthenticated;
             ViewBag.UserTierLevel = currentUserTierLevel;
 
-        
             var tiers = await _context.SubscriptionTiers
                 .Include(t => t.Features)
                 .OrderBy(t => t.Level)
                 .ToListAsync();
             ViewBag.Tiers = tiers;
 
-     
             var adminPosts = await _context.Posts
                 .Include(p => p.Author)
                 .Where(p => p.IsPublished && p.Author != null && p.Author.IsAdmin)

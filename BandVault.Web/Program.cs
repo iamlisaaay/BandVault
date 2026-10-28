@@ -1,6 +1,7 @@
 using BandVault.Web.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authentication.Cookies; // <--- ДОДАНО ДЛЯ ЛОГІНУ
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google; // <--- ДОДАНО ДЛЯ GOOGLE OAUTH2
 
 namespace BandVault.Web
 {
@@ -14,13 +15,19 @@ namespace BandVault.Web
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             // ============================================
-            // АВТОРИЗАЦІЯ ЧЕРЕЗ COOKIE
+            // АВТОРИЗАЦІЯ ЧЕРЕЗ COOKIE ТА GOOGLE OAUTH2 (C16)
             // ============================================
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
                 {
                     options.LoginPath = "/Auth/Login";
                     options.AccessDeniedPath = "/Auth/AccessDenied";
+                })
+                .AddGoogle(googleOptions =>
+                {
+                    // Ключі братимуться з appsettings.json. Якщо їх там немає, стоять заглушки, щоб проєкт не падав
+                    googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"] ?? "ЗАГЛУШКА_CLIENT_ID";
+                    googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? "ЗАГЛУШКА_CLIENT_SECRET";
                 });
 
             // Add services to the container.
@@ -64,9 +71,8 @@ namespace BandVault.Web
                 try
                 {
                     var context = services.GetRequiredService<ApplicationDbContext>();
-                    var config = services.GetRequiredService<IConfiguration>(); // <--- ОТРИМАЛИ КОНФІГ
+                    var config = services.GetRequiredService<IConfiguration>();
 
-                    // Передали обидва параметри в метод SeedDataAsync
                     DbInitializer.SeedDataAsync(context, config).Wait();
                 }
                 catch (Exception ex)

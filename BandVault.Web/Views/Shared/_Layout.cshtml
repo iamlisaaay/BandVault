@@ -25,7 +25,6 @@
                 </button>
 
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <!-- me-auto виштовхує правий блок до кінця екрану -->
                     <ul class="navbar-nav me-auto">
 
                         <!-- 1. ЦІ ВКЛАДКИ БАЧАТЬ УСІ (Навіть гості) -->
@@ -56,45 +55,47 @@
                         }
                     </ul>
 
-                 
                     <!-- ПРАВА ЧАСТИНА: АВАТАРКА АБО КНОПКА "УВІЙТИ" -->
-                    
                     <div class="d-flex align-items-center">
-    @if (User.Identity != null && User.Identity.IsAuthenticated)
-    {
-       
-            var layoutAvatarUrl = User.FindFirst("AvatarUrl")?.Value;
-            var layoutDisplayName = User.FindFirst("DisplayName")?.Value ?? "U";
-            if (string.IsNullOrEmpty(layoutAvatarUrl))
-            {
-                layoutAvatarUrl = $"https://via.placeholder.com/150/1a1a1a/ffffff?text={layoutDisplayName.Substring(0, 1).ToUpper()}";
-            }
-        
+                        @if (User.Identity != null && User.Identity.IsAuthenticated)
+                        {
+                            var layoutAvatarUrl = User.FindFirst("AvatarUrl")?.Value;
+                            var layoutDisplayName = User.FindFirst("DisplayName")?.Value ?? "U";
+                            if (string.IsNullOrEmpty(layoutAvatarUrl))
+                            {
+                                layoutAvatarUrl = $"https://via.placeholder.com/150/1a1a1a/ffffff?text={layoutDisplayName.Substring(0, 1).ToUpper()}";
+                            }
 
-      
-        <a asp-controller="Users" asp-action="Details" class="d-flex align-items-center link-light text-decoration-none">
-            <img src="@layoutAvatarUrl" alt="Avatar" width="35" height="35" class="rounded-circle border border-secondary" style="object-fit: cover;">
-            <span class="ms-2 meta-text text-uppercase fw-bold" style="font-size: 0.8rem; letter-spacing: 1px;">
-                @layoutDisplayName
-            </span>
-        </a>
-    }
-    else
-    {
-        <a class="btn btn-outline-light btn-sm text-uppercase fw-bold rounded-0 px-4" asp-controller="Auth" asp-action="Login">УВІЙТИ</a>
-    }
-</div>
+                            <a asp-controller="Users" asp-action="Details" class="d-flex align-items-center link-light text-decoration-none">
+                                <img src="@layoutAvatarUrl" alt="Avatar" width="35" height="35" class="rounded-circle border border-secondary" style="object-fit: cover;">
+                                <span class="ms-2 meta-text text-uppercase fw-bold" style="font-size: 0.8rem; letter-spacing: 1px;">
+                                    @layoutDisplayName
+                                </span>
+                            </a>
+                        }
+                        else
+                        {
+                            <a class="btn btn-outline-light btn-sm text-uppercase fw-bold rounded-0 px-4" asp-controller="Auth" asp-action="Login">УВІЙТИ</a>
+                        }
+                    </div>
                 </div>
             </div>
         </nav>
     </header>
+
+    <!-- Закріплені контакти постійно на екрані (C6) -->
+    <div class="position-fixed end-0 top-50 translate-middle-y bg-black border border-secondary p-2 d-none d-md-flex flex-column gap-3 shadow-lg" style="z-index: 1040; border-right: none !important;">
+        <a href="https://youtube.com/@@madmansesprit" target="_blank" class="text-secondary text-decoration-none text-center meta-text" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">YT</a>
+        <a href="https://instagram.com/madmansesprit_official" target="_blank" class="text-secondary text-decoration-none text-center meta-text" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">IG</a>
+        <a href="https://discord.gg/madmansesprit" target="_blank" class="text-secondary text-decoration-none text-center meta-text" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">DS</a>
+        <a href="mailto:booking@madmansesprit.com" class="text-white text-decoration-none text-center meta-text" title="booking@madmansesprit.com">✉</a>
+    </div>
 
     <div class="container">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
-
 
     <footer class="border-top border-secondary footer text-muted mt-5">
         <div class="container py-3">
@@ -105,16 +106,13 @@
     <!-- аудіо-плеєр -->
     <div id="global-player" data-turbo-permanent class="global-audio-footer bg-black border-top border-secondary shadow-lg py-2">
         <div class="container d-flex align-items-center">
-
             <!-- Обкладинка треку -->
             <img id="player-cover" src="https://via.placeholder.com/50/000000/ffffff?text=BV" alt="Cover" class="rounded me-3 border border-secondary" style="width: 50px; height: 50px; object-fit: cover;">
 
-          <!-- Інформація про трек -->
+            <!-- Інформація про трек -->
             <div class="player-info text-white me-3 d-none d-md-block" style="min-width: 180px; max-width: 250px;">
                 <h6 class="mb-0 text-light" style="font-size: 0.75rem; letter-spacing: 1px;">NOW PLAYING</h6>
                 <div id="player-track-title" class="fw-bold text-truncate" style="font-size: 0.95rem;">Оберіть трек</div>
-                
-             
                 <a id="player-track-artist" href="#" class="text-secondary text-truncate d-block text-decoration-none release-link" style="font-size: 0.875em; transition: color 0.2s;">BandVault</a>
             </div>
 
