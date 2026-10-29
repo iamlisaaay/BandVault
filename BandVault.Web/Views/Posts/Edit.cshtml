@@ -1,13 +1,12 @@
 ﻿@model BandVault.Web.Models.Post
 
-<div class="container my-5 w-50">
+<div class="container my-5 w-75">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="mb-0">Редагувати пост</h3>
         <a asp-action="Index" class="btn btn-sm btn-outline-secondary rounded-0">&larr; Назад до стрічки</a>
     </div>
     
-    <!-- ФІКС: Відключаємо Turbo для форми, щоб редактор завжди вантажився -->
-    <form asp-action="Edit" method="post" data-turbo="false">
+    <form asp-action="Edit" method="post" data-turbo="false" id="postForm">
         <input type="hidden" asp-for="Id" />
         
         <div class="mb-3">
@@ -17,15 +16,26 @@
 
         <div class="mb-3">
             <label asp-for="RequiredTierLevel" class="form-label text-secondary meta-text">ДОСТУП ДО ПОСТА (TIER)</label>
-         
             <select asp-for="RequiredTierLevel" class="form-select bg-dark text-white border-secondary rounded-0" asp-items="ViewBag.Tiers">
             </select>
         </div>
 
         <div class="mb-4">
-            <label asp-for="ContentMarkdown" class="form-label text-secondary meta-text">КОНТЕНТ (ПІДТРИМУЄ DRAG-N-DROP МЕДІА)</label>
-            <!-- ФІКС: Додано id="ContentMarkdown" -->
-            <textarea asp-for="ContentMarkdown" id="ContentMarkdown" class="form-control bg-dark text-white border-secondary rounded-0" rows="10" required></textarea>
+            <label class="form-label text-secondary meta-text">КОНТЕНТ (DRAG-N-DROP СОРТУВАННЯ ТА МЕДІА)</label>
+            <div id="editor-blocks" class="mb-3 p-3 border border-secondary" style="min-height: 200px; background-color: #121212;">
+                <!-- Тут будуть створюватись блоки -->
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-light btn-sm rounded-0" onclick="addTextBlock()">+ Текст</button>
+                <button type="button" class="btn btn-outline-light btn-sm rounded-0" onclick="document.getElementById('mediaUpload').click()">+ Медіа (Фото/Відео/Аудіо)</button>
+                <input type="file" id="mediaUpload" style="display: none;" accept="image/*, audio/*, video/*" onchange="uploadMedia(this)" />
+            </div>
+
+            <!-- Приховане поле -->
+            <input type="hidden" asp-for="ContentMarkdown" id="ContentMarkdown" />
+            <!-- Дані для першого завантаження з БД -->
+            <input type="hidden" id="InitialContent" value="@Model.ContentMarkdown" />
         </div>
 
         <div class="form-check mb-4">
@@ -35,137 +45,155 @@
             </label>
         </div>
 
-        <button type="submit" class="btn btn-light rounded-0 w-100 fw-bold">ЗБЕРЕГТИ ЗМІНИ</button>
+        <button type="button" onclick="saveAndSubmit()" class="btn btn-light rounded-0 w-100 fw-bold">ЗБЕРЕГТИ ЗМІНИ</button>
     </form>
 </div>
 
 @section Scripts {
-    <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
-    <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <style>
-        .editor-toolbar { border-color: #6c757d; background-color: #1a1a1a; }
-        .editor-toolbar button { color: #fff !important; }
-        .editor-toolbar button:hover, .editor-toolbar button.active { background-color: #333; }
-        .CodeMirror { background-color: #121212; color: #fff; border-color: #6c757d; }
-        .editor-preview { background-color: #121212; }
-        
-        /* ФІКС КУРСОРА */
-        .CodeMirror-cursor { border-left: 2px solid #fff !important; }
+        .block-item {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            margin-bottom: 10px;
+            padding: 10px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            transition: border-color 0.2s;
+        }
+        .block-item:focus-within { border-color: #6c757d; }
+        .drag-handle { cursor: grab; color: #666; padding: 5px; font-size: 1.2rem; user-select: none; }
+        .drag-handle:active { cursor: grabbing; }
+        .block-content { flex-grow: 1; }
+        .block-textarea { width: 100%; background: transparent; color: white; border: none; resize: vertical; outline: none; min-height: 60px; }
     </style>
 
     <script>
-        function initMarkdownEditor() {
-            const textArea = document.getElementById('ContentMarkdown');
-            if (!textArea) return;
+        const STORAGE_KEY = 'bandvault_post_edit_blocks_@Model.Id';
+        const editorContainer = document.getElementById('editor-blocks');
 
-            if (window.bandvaultMdeEdit) {
-                window.bandvaultMdeEdit.toTextArea();
-                window.bandvaultMdeEdit = null;
-            }
+        new Sortable(editorContainer, {
+            animation: 150,
+            handle: '.drag-handle',
+            ghostClass: 'bg-dark',
+            onEnd: saveDraft
+        });
 
-            window.bandvaultMdeEdit = new EasyMDE({
-                element: textArea,
-                spellChecker: false,
-                autosave: {
-                    enabled: true,
-                    uniqueId: "bandvault_post_edit_@Model.Id", // Унікальний ID для конкретного поста
-                    delay: 1000,
-                },
-                uploadImage: true,
-                imageAccept: "image/*", 
-                imageUploadFunction: function(file, onSuccess, onError) {
-                    uploadMediaFile(file, window.bandvaultMdeEdit.codemirror, onSuccess, onError);
-                }
-            });
-
-            // Наш кастомний перехоплювач для АУДІО ТА ВІДЕО вішаємо на весь редактор
-            const editorWrapper = textArea.nextSibling; 
-            
-            editorWrapper.addEventListener('dragover', function(e) {
-                e.preventDefault();
-            });
-
-            editorWrapper.addEventListener('drop', function(e) {
-                if (e.dataTransfer.files.length > 0) {
-                    var file = e.dataTransfer.files[0];
-                    if (file.type.match('audio.*') || file.type.match('video.*')) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        uploadMediaFile(file, window.bandvaultMdeEdit.codemirror, 
-                            (url) => {}, 
-                            (err) => { alert(err); }
-                        );
-                    }
-                }
-            }, true);
-
-            setTimeout(() => {
-                if (window.bandvaultMdeEdit && window.bandvaultMdeEdit.codemirror) {
-                    window.bandvaultMdeEdit.codemirror.refresh();
-                }
-            }, 100);
-        }
-
-        function uploadMediaFile(file, editor, onSuccess, onError) {
-            if (file.size > 20 * 1024 * 1024) {
-                onError("Файл занадто великий! Дозволено до 20 МБ.");
-                return;
-            }
-
-            var formData = new FormData();
-            formData.append("file", file);
-
-            var placeholder = `![Uploading ${file.name}...]()`;
-            var isMedia = file.type.match('audio.*') || file.type.match('video.*');
-            
-            if (isMedia) {
-                var doc = editor.getDoc();
-                var cursor = doc.getCursor();
-                doc.replaceRange(placeholder, cursor);
-            }
-            
-            fetch('/Posts/UploadMedia', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.type === 'image') {
-                    onSuccess(data.url); 
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedDraft = localStorage.getItem(STORAGE_KEY);
+            if (savedDraft) {
+                const blocks = JSON.parse(savedDraft);
+                blocks.forEach(b => {
+                    if (b.type === 'text') addTextBlock(b.content);
+                    else if (b.type === 'media') addMediaBlock(b.content, b.preview);
+                });
+            } else {
+                // Якщо чернетки немає, завантажуємо текст із бази (як один блок)
+                const initialContent = document.getElementById('InitialContent').value;
+                if (initialContent.trim() !== "") {
+                    addTextBlock(initialContent);
                 } else {
-                    var doc = editor.getDoc();
-                    var text = doc.getValue();
-                    var newText = text.replace(placeholder, 
-                        data.type === 'video' ? `\n<video controls style="width:100%; border-radius:8px; margin: 10px 0;"><source src="${data.url}"></video>\n` :
-                        `\n<audio controls class="w-100" style="margin: 10px 0;"><source src="${data.url}"></audio>\n`
-                    );
-                    doc.setValue(newText);
+                    addTextBlock();
                 }
-            })
-            .catch(err => {
-                onError("Помилка завантаження: " + err.toString());
-                if (isMedia) {
-                    var doc = editor.getDoc();
-                    doc.setValue(doc.getValue().replace(placeholder, ""));
-                }
-            });
-        }
-
-        document.addEventListener("turbo:before-cache", function() {
-            if (window.bandvaultMdeEdit) {
-                window.bandvaultMdeEdit.toTextArea();
-                window.bandvaultMdeEdit = null;
             }
         });
 
-        document.removeEventListener("turbo:load", initMarkdownEditor); 
-        document.addEventListener("turbo:load", initMarkdownEditor);
+        function addTextBlock(content = "") {
+            const id = 'block_' + Date.now();
+            const html = `
+                <div class="block-item" id="${id}" data-type="text">
+                    <div class="drag-handle">⠿</div>
+                    <div class="block-content">
+                        <textarea class="block-textarea" placeholder="Напишіть текст або Markdown..." oninput="saveDraft()">${content}</textarea>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="this.parentElement.remove(); saveDraft();">✕</button>
+                </div>
+            `;
+            editorContainer.insertAdjacentHTML('beforeend', html);
+            saveDraft();
+        }
 
-        if (document.readyState === 'complete' || document.readyState === 'interactive') {
-            initMarkdownEditor();
-        } else {
-            document.addEventListener("DOMContentLoaded", initMarkdownEditor);
+        function addMediaBlock(markdownCode, previewHtml) {
+            const id = 'block_' + Date.now();
+            const html = `
+                <div class="block-item" id="${id}" data-type="media">
+                    <div class="drag-handle">⠿</div>
+                    <div class="block-content">
+                        <input type="hidden" class="media-markdown" value="${markdownCode.replace(/"/g, '&quot;')}" />
+                        <div class="media-preview">${previewHtml}</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="this.parentElement.remove(); saveDraft();">✕</button>
+                </div>
+            `;
+            editorContainer.insertAdjacentHTML('beforeend', html);
+            saveDraft();
+        }
+
+        function uploadMedia(input) {
+            if (!input.files || input.files.length === 0) return;
+            const file = input.files[0];
+            
+            if (file.size > 20 * 1024 * 1024) {
+                alert("Файл занадто великий! Дозволено до 20 МБ.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            fetch('/Posts/UploadMedia', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    let markdown = "";
+                    let preview = "";
+
+                    if (data.type === 'image') {
+                        markdown = `![${data.name}](${data.url})`;
+                        preview = `<img src="${data.url}" style="max-height: 200px; max-width: 100%; border-radius: 8px;">`;
+                    } else if (data.type === 'video') {
+                        markdown = `\n<video controls style="width:100%; max-height: 400px; border-radius:8px; margin: 10px 0;"><source src="${data.url}"></video>\n`;
+                        preview = markdown;
+                    } else {
+                        markdown = `\n<audio controls class="w-100" style="margin: 10px 0;"><source src="${data.url}"></audio>\n`;
+                        preview = markdown;
+                    }
+
+                    addMediaBlock(markdown, preview);
+                    input.value = ""; 
+                })
+                .catch(err => alert("Помилка завантаження: " + err));
+        }
+
+        function saveDraft() {
+            const blocks = [];
+            Array.from(editorContainer.children).forEach(block => {
+                if (block.dataset.type === 'text') {
+                    blocks.push({ type: 'text', content: block.querySelector('textarea').value });
+                } else if (block.dataset.type === 'media') {
+                    blocks.push({ 
+                        type: 'media', 
+                        content: block.querySelector('.media-markdown').value,
+                        preview: block.querySelector('.media-preview').innerHTML
+                    });
+                }
+            });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(blocks));
+        }
+
+        function saveAndSubmit() {
+            let finalMarkdown = "";
+            Array.from(editorContainer.children).forEach(block => {
+                if (block.dataset.type === 'text') {
+                    finalMarkdown += block.querySelector('textarea').value + "\n\n";
+                } else if (block.dataset.type === 'media') {
+                    finalMarkdown += block.querySelector('.media-markdown').value + "\n\n";
+                }
+            });
+            
+            document.getElementById('ContentMarkdown').value = finalMarkdown.trim();
+            localStorage.removeItem(STORAGE_KEY);
+            document.getElementById('postForm').submit();
         }
     </script>
 }

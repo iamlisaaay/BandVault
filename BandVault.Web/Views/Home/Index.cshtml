@@ -1,9 +1,9 @@
 ﻿@model IEnumerable<BandVault.Web.Models.Post>
+@using Markdig
 
 @{
     ViewData["Title"] = ViewBag.BandName;
     
-    // Функція для витягування ID з YouTube
     string GetYouTubeId(string url)
     {
         if (string.IsNullOrEmpty(url)) return null;
@@ -19,8 +19,6 @@
 
 <style>
     html { scroll-behavior: smooth; }
-
-    /* === ВІДЕО ФОН === */
     .group-hero {
         position: relative;
         height: 100vh;
@@ -32,7 +30,6 @@
         align-items: center;
         background-color: #050505;
     }
-
     .youtube-bg-container {
         position: absolute;
         top: 0; left: 0;
@@ -40,7 +37,6 @@
         overflow: hidden;
         z-index: 0;
     }
-
     .youtube-bg-container::after {
         content: "";
         position: absolute;
@@ -48,7 +44,6 @@
         z-index: 1;
         background: rgba(10, 10, 10, 0.65);
     }
-
     .youtube-bg-iframe {
         position: absolute;
         top: 50%; left: 50%;
@@ -57,22 +52,18 @@
         transform: translate(-50%, -50%);
         pointer-events: none;
     }
-
-    /* === КОНТЕНТ ПОВЕРХ ВІДЕО === */
     .hero-content {
         position: relative;
         z-index: 2;
         text-align: center;
         width: 100%;
     }
-
     .hero-title {
         font-family: 'Courier New', Courier, monospace;
         letter-spacing: 5px;
         margin-bottom: 2rem;
         font-size: 1.5rem;
     }
-    
     .hero-subtitle {
         letter-spacing: 2px;
         color: #ccc;
@@ -80,15 +71,6 @@
     }
 </style>
 
-<!-- ЗАКРІПЛЕНІ КОНТАКТИ ЗБОКУ (Виправлення C6) -->
-<div class="position-fixed end-0 top-50 translate-middle-y bg-black border border-secondary p-2 d-none d-md-flex flex-column gap-3 shadow-lg" style="z-index: 1040; border-right: none !important;">
-    <a href="@ViewBag.Social_YouTube" target="_blank" class="text-secondary text-decoration-none text-center meta-text" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">YT</a>
-    <a href="@ViewBag.Social_Instagram" target="_blank" class="text-secondary text-decoration-none text-center meta-text" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">IG</a>
-    <a href="@ViewBag.Social_Discord" target="_blank" class="text-secondary text-decoration-none text-center meta-text" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">DS</a>
-    <a href="mailto:@ViewBag.ContactEmail" class="text-white text-decoration-none text-center meta-text" title="@ViewBag.ContactEmail">✉</a>
-</div>
-
-<!-- 1. HERO СЕКЦІЯ З ВІДЕО -->
 <div class="group-hero mb-5">
     @if (!string.IsNullOrEmpty(videoId))
     {
@@ -108,7 +90,6 @@
         <div class="hero-title text-white fw-bold">WATCH NOW</div>
         <div class="hero-subtitle">"@ViewBag.PromoText"</div>
 
-        <!-- ЛОГІКА АВТОРИЗАЦІЇ -->
         <div class="mt-4">
             @if (!isAuth)
             {
@@ -136,7 +117,6 @@
     </div>
 </div>
 
-<!-- 2. СЕКЦІЯ НОВИН -->
 <div class="container my-5 pt-4" id="news">
     <h4 class="text-uppercase text-secondary mb-5 text-center" style="letter-spacing: 4px;">Секретні матеріали</h4>
     
@@ -170,9 +150,10 @@
                                     @post.CreatedAt.ToString("dd.MM.yyyy") | TIER @post.RequiredTierLevel
                                 </h6>
                                 <h4 class="card-title fw-bold text-uppercase mb-3">@post.Title</h4>
-                                <p class="card-text text-light opacity-75">
-                                    @post.ContentMarkdown
-                                </p>
+                                <!-- Рендеринг HTML тексту замість сирого Markdown -->
+                                <div class="card-text text-light opacity-75" style="overflow-wrap: break-word;">
+                                    @Html.Raw(Markdown.ToHtml(post.ContentMarkdown ?? "", new MarkdownPipelineBuilder().UseAdvancedExtensions().Build()))
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -188,7 +169,6 @@
     </div>
 </div>
 
-<!-- 3. CALL TO ACTION (Форма підписки та Соцмережі) -->
 <div class="container my-5 py-5" id="join">
     <div class="card bg-transparent border-secondary rounded-0 text-center p-5" style="box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
         <h3 class="fw-bold text-uppercase text-white mb-3" style="letter-spacing: 2px;">Долучайся до інсайдерів</h3>
@@ -199,7 +179,6 @@
             <button type="submit" class="btn btn-light rounded-0 text-uppercase fw-bold px-4" style="letter-spacing: 1px;">Підписатися</button>
         </form>
         
-        <!-- ДИНАМІЧНІ СОЦМЕРЕЖІ З БАЗИ -->
         <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
             <a href="@ViewBag.Social_YouTube" class="text-secondary text-decoration-none meta-text hover-light">YOUTUBE</a>
             <span class="text-secondary">|</span>
@@ -218,7 +197,6 @@
     </div>
 </div>
 
-<!-- 4. МОДАЛЬНЕ ВІКНО З ТІРАМИ (ПІДПИСКИ) -->
 <div class="modal fade" id="tierModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content bg-dark border-secondary rounded-0 text-white" style="box-shadow: 0 0 50px rgba(0,0,0,0.8);">
@@ -235,7 +213,6 @@
                 foreach (var tier in ViewBag.Tiers)
                 {
                     <div class="col">
-                        <!-- Якщо IsRecommended, додаємо світлу рамку -->
                         <div class="card h-100 bg-transparent rounded-0 text-center @(tier.IsRecommended ? "border-light" : "border-secondary")" style="transition: transform 0.3s;">
                             
                             @if (tier.IsRecommended)

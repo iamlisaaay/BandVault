@@ -12,7 +12,7 @@ namespace BandVault.Web.Controllers.Api
     public class MerchApiController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly IDistributedCache _cache; // Підключення кешу
+        private readonly IDistributedCache _cache;
 
         public MerchApiController(ApplicationDbContext context, IDistributedCache cache)
         {
@@ -20,7 +20,6 @@ namespace BandVault.Web.Controllers.Api
             _cache = cache;
         }
 
-        // GET: api/merch
         [HttpGet]
         public async Task<IActionResult> GetMerch(
             [FromQuery] string? query = null,
@@ -33,21 +32,22 @@ namespace BandVault.Web.Controllers.Api
             int actualSkip = skip ?? ((page < 1 ? 0 : page - 1) * actualLimit);
             int currentPage = (actualSkip / actualLimit) + 1;
 
-            // 1. Формуємо унікальний ключ для кешу (на основі параметрів запиту)
             string cacheKey = $"merch_list_{query ?? "all"}_{actualSkip}_{actualLimit}";
 
-            // 2. СПРОБА ПРОЧИТАТИ З КЕШУ
-            var cachedData = await _cache.GetStringAsync(cacheKey);
-            if (!string.IsNullOrEmpty(cachedData))
+            // 1. СПРОБА ПРОЧИТАТИ З КЕШУ
+            try
             {
-                // Повертаємо готовий JSON одразу з Redis
-                var result = JsonSerializer.Deserialize<object>(cachedData);
-                return Ok(result);
+                var cachedData = await _cache.GetStringAsync(cacheKey);
+                if (!string.IsNullOrEmpty(cachedData))
+                {
+                    // Повертаємо кеш з правильним Content-Type
+                    return Content(cachedData, "application/json");
+                }
             }
+            catch { /* Якщо Redis лежить, ігноруємо помилку і йдемо в БД */ }
 
-            // 3. ЯКЩО КЕШУ НЕМАЄ — ЗВЕРТАЄМОСЬ ДО БАЗИ ДАНИХ
+            // 2. БД
             var merchQuery = _context.MerchItems.AsQueryable();
-
             if (!string.IsNullOrWhiteSpace(query))
             {
                 merchQuery = merchQuery.Where(m => EF.Functions.ILike(m.Title, $"%{query}%"));
@@ -55,7 +55,6 @@ namespace BandVault.Web.Controllers.Api
 
             var totalItems = await merchQuery.CountAsync();
             var totalPages = (int)Math.Ceiling(totalItems / (double)actualLimit);
-
             var items = await merchQuery
                 .OrderBy(m => m.Id)
                 .Skip(actualSkip)
@@ -75,29 +74,33 @@ namespace BandVault.Web.Controllers.Api
 
             var responseData = new
             {
-                TotalItems = totalItems,
-                TotalPages = totalPages,
-                CurrentPage = currentPage,
-                PageSize = actualLimit,
-                Skip = actualSkip,
-                Limit = actualLimit,
-                NextLink = nextLink,
-                Data = items
+                totalItems = totalItems, // Примусово CamelCase для Postman та UI
+                totalPages = totalPages,
+                currentPage = currentPage,
+                pageSize = actualLimit,
+                skip = actualSkip,
+                limit = actualLimit,
+                nextLink = nextLink,
+                data = items
             };
 
-            // 4. ЗБЕРІГАЄМО РЕЗУЛЬТАТ В КЕШ НА 60 СЕКУНД
-            var cacheOptions = new DistributedCacheEntryOptions
+            // 3. ЗАПИС У КЕШ
+            try
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60)
-            };
+                var cacheOptions = new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60)
+                };
+                var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+                var serializedData = JsonSerializer.Serialize(responseData, jsonOptions);
 
-            var serializedData = JsonSerializer.Serialize(responseData);
-            await _cache.SetStringAsync(cacheKey, serializedData, cacheOptions);
+                await _cache.SetStringAsync(cacheKey, serializedData, cacheOptions);
+            }
+            catch { /* Ігноруємо, якщо Redis недоступний */ }
 
             return Ok(responseData);
         }
 
-        // Ендпоінт для задачі F2 (Autocomplete категорій у формах)
         [HttpGet("categories")]
         public async Task<IActionResult> SearchCategories([FromQuery] string? term)
         {
@@ -106,15 +109,10 @@ namespace BandVault.Web.Controllers.Api
             {
                 query = query.Where(c => EF.Functions.ILike(c.Name, $"%{term}%"));
             }
-
-            var results = await query
-                .Select(c => new { id = c.Id, text = c.Name })
-                .ToListAsync();
-
+            var results = await query.Select(c => new { id = c.Id, text = c.Name }).ToListAsync();
             return Ok(results);
         }
 
-        // GET: api/merch/5
         [HttpGet("{id}")]
         public async Task<IActionResult> GetMerchItem(int id)
         {
@@ -123,7 +121,6 @@ namespace BandVault.Web.Controllers.Api
             return Ok(merchItem);
         }
 
-        // POST: api/merch
         [HttpPost]
         public async Task<IActionResult> CreateMerchItem([FromBody] MerchItem merchItem)
         {
@@ -133,13 +130,11 @@ namespace BandVault.Web.Controllers.Api
             return CreatedAtAction(nameof(GetMerchItem), new { id = merchItem.Id }, merchItem);
         }
 
-        // PUT: api/merch/5
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateMerchItem(int id, [FromBody] MerchItem merchItem)
         {
             if (id != merchItem.Id) return BadRequest("ID mismatch");
             _context.Entry(merchItem).State = EntityState.Modified;
-
             try
             {
                 await _context.SaveChangesAsync();
@@ -152,7 +147,6 @@ namespace BandVault.Web.Controllers.Api
             return NoContent();
         }
 
-        // DELETE: api/merch/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteMerchItem(int id)
         {

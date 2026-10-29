@@ -18,11 +18,7 @@ namespace BandVault.Web
             // ============================================
             // АВТОРИЗАЦІЯ ЧЕРЕЗ COOKIE ТА GOOGLE OAUTH2 (C16)
             // ============================================
-            builder.Services.AddAuthentication(options =>
-            {
-                options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
-            })
+            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
             .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
             {
                 options.LoginPath = "/Auth/Login";
@@ -62,7 +58,6 @@ namespace BandVault.Web
                     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
                 });
 
-            // === УСІ СЕРВІСИ МАЮТЬ БУТИ ДО ЦЬОГО РЯДКА ===
             var app = builder.Build();
 
             if (!app.Environment.IsDevelopment())

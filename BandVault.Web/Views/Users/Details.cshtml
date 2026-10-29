@@ -3,7 +3,6 @@
 <div class="container my-5 w-75">
     <div class="card bg-transparent border-secondary rounded-0 text-white p-5">
         <div class="d-flex align-items-start gap-4 flex-wrap">
-            <!-- Аватарка -->
             <img src="@Model.AvatarUrl" alt="Avatar" class="rounded-circle border border-secondary" style="width: 120px; height: 120px; object-fit: cover;">
 
             <div class="flex-grow-1">
@@ -38,15 +37,14 @@
             </div>
         </div>
 
-        <!-- КЕРУВАННЯ ПРОФІЛЕМ (тільки для свого профілю) -->
         @if (ViewBag.IsOwnProfile)
         {
             <hr class="border-secondary my-5">
             <h4 class="fw-bold mb-4">Керування акаунтом</h4>
 
-            <!-- КНОПКИ ПІДПИСКИ ТА ВИХОДУ -->
             <div class="d-flex gap-3 mb-5">
-               <a asp-controller="Home" asp-action="Index" asp-fragment="join" class="btn btn-outline-warning rounded-0 fw-bold flex-grow-1">МОЯ ПІДПИСКА</a>a>
+                <!-- ФІКС: Прибрано зайвий символ a> після </a> -->
+               <a asp-controller="Home" asp-action="Index" asp-fragment="join" class="btn btn-outline-warning rounded-0 fw-bold flex-grow-1">МОЯ ПІДПИСКА</a>
                 <a asp-controller="Auth" asp-action="Logout" class="btn btn-outline-danger rounded-0 fw-bold flex-grow-1">ВИЙТИ З АКАУНТА</a>
             </div>
 

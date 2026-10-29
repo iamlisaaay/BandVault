@@ -21,7 +21,7 @@ namespace BandVault.Web.Controllers
         }
 
         // ============================================
-        // ЗАВАНТАЖЕННЯ МЕДІА (ДЛЯ DRAG-N-DROP В EASYMDE)
+        // ЗАВАНТАЖЕННЯ МЕДІА
         // ============================================
         [HttpPost]
         public async Task<IActionResult> UploadMedia(IFormFile file)
@@ -42,9 +42,9 @@ namespace BandVault.Web.Controllers
             string fileUrl = "/uploads/posts/" + fileName;
 
             string type = "file";
-            if (ext == ".jpg" || ext == ".png" || ext == ".gif" || ext == ".webp") type = "image";
-            else if (ext == ".mp4" || ext == ".webm") type = "video";
-            else if (ext == ".mp3" || ext == ".wav") type = "audio";
+            if (ext is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp") type = "image";
+            else if (ext is ".mp4" or ".webm" or ".mov") type = "video";
+            else if (ext is ".mp3" or ".wav" or ".m4a" or ".ogg" or ".flac") type = "audio";
 
             return Json(new { url = fileUrl, type = type, name = file.FileName });
         }
