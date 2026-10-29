@@ -1,7 +1,7 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.Google; // <--- ДОДАНО ДЛЯ GOOGLE OAUTH2
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
@@ -12,10 +12,12 @@ namespace BandVault.Web.Controllers
     public class AuthController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IConfiguration _config;
 
-        public AuthController(ApplicationDbContext context)
+        public AuthController(ApplicationDbContext context, IConfiguration config)
         {
             _context = context;
+            _config = config;
         }
 
         [HttpGet]
@@ -25,7 +27,7 @@ namespace BandVault.Web.Controllers
         }
 
         // ============================================
-        // 1. СТАРИЙ МЕТОД ЛОГІНУ ЧЕРЕЗ EMAIL (Заглушка)
+        // 1. ВХІД ЧЕРЕЗ EMAIL (Для тестів та локальної розробки)
         // ============================================
         [HttpPost]
         public async Task<IActionResult> Login(string email)
@@ -42,27 +44,33 @@ namespace BandVault.Web.Controllers
         // 2. GOOGLE OAUTH2 ЛОГІКА (C16)
         // ============================================
         [HttpPost]
-        public IActionResult ExternalLogin(string provider = "Google", string returnUrl = "/")
+        public IActionResult ExternalLogin(string returnUrl = "/")
         {
-            var properties = new AuthenticationProperties { RedirectUri = Url.Action(nameof(ExternalLoginCallback), new { returnUrl }) };
+            var redirectUrl = Url.Action(nameof(ExternalLoginCallback), "Auth", new { returnUrl });
+            var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
             return Challenge(properties, GoogleDefaults.AuthenticationScheme);
         }
 
         [HttpGet]
         public async Task<IActionResult> ExternalLoginCallback(string returnUrl = "/")
         {
+            // Отримуємо результат автентифікації
             var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
-            if (!result.Succeeded)
-                return RedirectToAction("Login");
+            if (!result.Succeeded || result.Principal == null)
+            {
+                return RedirectToAction(nameof(Login));
+            }
 
-            var claims = result.Principal.Identities.FirstOrDefault()?.Claims;
-            var email = claims?.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
-            var name = claims?.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
-            var avatar = claims?.FirstOrDefault(c => c.Type == "urn:google:picture")?.Value;
+            var claims = result.Principal.Claims;
+            var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
+            var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+            var avatar = claims.FirstOrDefault(c => c.Type == "urn:google:picture")?.Value;
 
             if (string.IsNullOrEmpty(email))
-                return RedirectToAction("Login");
+            {
+                return RedirectToAction(nameof(Login));
+            }
 
             return await ProcessUserLogin(email.ToLower(), name, avatar, returnUrl);
         }
@@ -72,7 +80,8 @@ namespace BandVault.Web.Controllers
         // ============================================
         private async Task<IActionResult> ProcessUserLogin(string userEmail, string? displayName, string? avatarUrl, string returnUrl)
         {
-            bool isSuperAdmin = userEmail == "danchenko_anastasiia@knu.ua";
+            var superAdminEmail = _config["AdminSettings:SuperAdminEmail"]?.ToLower() ?? "danchenko_anastasiia@knu.ua";
+            bool isSuperAdmin = userEmail == superAdminEmail;
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userEmail);
 
@@ -81,8 +90,8 @@ namespace BandVault.Web.Controllers
                 var lowestTier = await _context.SubscriptionTiers.OrderBy(t => t.Level).FirstOrDefaultAsync();
                 var highestTier = await _context.SubscriptionTiers.OrderByDescending(t => t.Level).FirstOrDefaultAsync();
 
-                int guestTierId = lowestTier != null ? lowestTier.Id : 1;
-                int adminTierId = highestTier != null ? highestTier.Id : 1;
+                int guestTierId = lowestTier?.Id ?? 1;
+                int adminTierId = highestTier?.Id ?? 1;
 
                 user = new User
                 {
@@ -91,7 +100,6 @@ namespace BandVault.Web.Controllers
                     IsAdmin = isSuperAdmin,
                     SubscriptionTierId = isSuperAdmin ? adminTierId : guestTierId,
                     AvatarUrl = avatarUrl,
-                    PasswordHash = "OAUTH_ACCOUNT", // Заглушка пароля
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -106,7 +114,10 @@ namespace BandVault.Web.Controllers
                 {
                     var highestTier = await _context.SubscriptionTiers.OrderByDescending(t => t.Level).FirstOrDefaultAsync();
                     user.IsAdmin = true;
-                    if (highestTier != null) user.SubscriptionTierId = highestTier.Id;
+                    if (highestTier != null)
+                    {
+                        user.SubscriptionTierId = highestTier.Id;
+                    }
                     needsUpdate = true;
                 }
 
@@ -116,26 +127,32 @@ namespace BandVault.Web.Controllers
                     needsUpdate = true;
                 }
 
-                if (needsUpdate) await _context.SaveChangesAsync();
+                if (needsUpdate)
+                {
+                    await _context.SaveChangesAsync();
+                }
             }
 
-            // Створюємо "паспорт" сесії (Cookies)
-            var claims = new List<Claim>
+            // Формуємо клейми для поточної сесії
+            var userClaims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.Email),
                 new Claim("UserId", user.Id.ToString()),
                 new Claim("DisplayName", user.DisplayName ?? user.Email.Split('@')[0]),
                 new Claim("IsAdmin", user.IsAdmin.ToString().ToLower()),
-                new Claim("AvatarUrl", user.AvatarUrl ?? $"https://via.placeholder.com/150/1a1a1a/ffffff?text={user.Email.Substring(0, 1).ToUpper()}")
+                new Claim("AvatarUrl", user.AvatarUrl ?? $"https://via.placeholder.com/150/1a1a1a/ffffff?text={user.Email[..1].ToUpper()}")
             };
 
-            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var identity = new ClaimsIdentity(userClaims, CookieAuthenticationDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
 
+            // Оновлюємо куку з новими актуальними клеймами
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
 
             if (Url.IsLocalUrl(returnUrl))
+            {
                 return LocalRedirect(returnUrl);
+            }
 
             return RedirectToAction("Index", "Home");
         }

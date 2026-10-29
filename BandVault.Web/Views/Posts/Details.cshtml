@@ -1,4 +1,5 @@
 ﻿@model BandVault.Web.Models.Post
+@using Markdig
 
 <div class="container my-5 w-75">
     <a asp-action="Index" class="btn btn-sm btn-outline-secondary rounded-0 mb-4">&larr; Назад до стрічки</a>
@@ -17,9 +18,13 @@
             <span class="text-secondary meta-text">@Model.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
         </div>
 
-        <div class="post-content fs-5" style="white-space: pre-wrap;">
-            @* Тут у майбутньому підключимо Markdown парсер, зараз просто виводимо текст *@
-            @Model.ContentMarkdown
+        <div class="post-content fs-5 markdown-content" style="overflow-wrap: break-word;">
+            @{
+                // Markdig перетворить весь текст у HTML
+                var pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+                var htmlContent = Markdown.ToHtml(Model.ContentMarkdown ?? "", pipeline);
+            }
+            @Html.Raw(htmlContent)
         </div>
     }
     else
@@ -30,7 +35,6 @@
                 Цей пост доступний лише для членів фан-клубу рівня 
                 <strong class="text-white">Tier @ViewBag.RequiredTier</strong> та вище.
             </p>
-            <!-- Фікс B6 -->
             <a href="/#join" class="btn btn-warning text-dark fw-bold text-uppercase px-4 py-2 rounded-0">
                 Підвищити рівень (Ваш Tier: @ViewBag.UserTier)
             </a>

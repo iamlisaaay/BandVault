@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering; // Додано для SelectList
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
 using BandVault.Web.Models;
+using System.IO;
 
 namespace BandVault.Web.Controllers
 {
@@ -11,10 +12,41 @@ namespace BandVault.Web.Controllers
     public class PostsController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IWebHostEnvironment _env;
 
-        public PostsController(ApplicationDbContext context)
+        public PostsController(ApplicationDbContext context, IWebHostEnvironment env)
         {
             _context = context;
+            _env = env;
+        }
+
+        // ============================================
+        // ЗАВАНТАЖЕННЯ МЕДІА (ДЛЯ DRAG-N-DROP В EASYMDE)
+        // ============================================
+        [HttpPost]
+        public async Task<IActionResult> UploadMedia(IFormFile file)
+        {
+            if (file == null || file.Length == 0) return BadRequest("Файл порожній.");
+
+            string ext = Path.GetExtension(file.FileName).ToLower();
+            string fileName = Guid.NewGuid().ToString() + ext;
+            string uploadPath = Path.Combine(_env.WebRootPath, "uploads", "posts");
+
+            Directory.CreateDirectory(uploadPath);
+
+            using (var stream = new FileStream(Path.Combine(uploadPath, fileName), FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            string fileUrl = "/uploads/posts/" + fileName;
+
+            string type = "file";
+            if (ext == ".jpg" || ext == ".png" || ext == ".gif" || ext == ".webp") type = "image";
+            else if (ext == ".mp4" || ext == ".webm") type = "video";
+            else if (ext == ".mp3" || ext == ".wav") type = "audio";
+
+            return Json(new { url = fileUrl, type = type, name = file.FileName });
         }
 
         // GET: Posts
@@ -30,7 +62,6 @@ namespace BandVault.Web.Controllers
 
             var posts = await _context.Posts
                 .Include(p => p.Author)
-                // Адмін бачить усі пости (навіть чернетки інших). Звичайні юзери бачать тільки опубліковані, або свої чернетки.
                 .Where(p => isAdmin || p.IsPublished || (user != null && p.AuthorId == user.Id))
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
@@ -55,7 +86,6 @@ namespace BandVault.Web.Controllers
             bool isAdmin = user?.IsAdmin ?? false;
             int userTier = user?.SubscriptionTier?.Level ?? 0;
 
-            // ГАРАНТІЯ ДОСТУПУ: Адміни завжди мають доступ. Інакше - перевіряємо рівень.
             bool hasAccess = isAdmin || post.RequiredTierLevel == 0 || userTier >= post.RequiredTierLevel;
 
             ViewBag.HasAccess = hasAccess;
@@ -75,9 +105,7 @@ namespace BandVault.Web.Controllers
             if (user == null || !user.IsAdmin)
                 return Forbid();
 
-            // ДІСТАЄМО ТІРИ З БАЗИ ДЛЯ ВИТЯЖНОГО СПИСКУ
             var tiers = await _context.SubscriptionTiers.OrderBy(t => t.Level).ToListAsync();
-            // Створюємо список, додаючи базовий варіант "Усім підписникам (Tier 0+)"
             var tierOptions = new List<SelectListItem>
             {
                 new SelectListItem { Value = "0", Text = "Усім підписникам (Tier 0+)" }
@@ -126,7 +154,6 @@ namespace BandVault.Web.Controllers
                 return Forbid();
             }
 
-            // ДІСТАЄМО ТІРИ З БАЗИ ДЛЯ ВИТЯЖНОГО СПИСКУ
             var tiers = await _context.SubscriptionTiers.OrderBy(t => t.Level).ToListAsync();
             var tierOptions = new List<SelectListItem>
             {

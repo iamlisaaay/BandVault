@@ -6,8 +6,8 @@
         <a asp-action="Index" class="btn btn-sm btn-outline-secondary rounded-0">&larr; Назад до стрічки</a>
     </div>
     
-    <form asp-action="Edit" method="post">
-        <!-- Обов'язково передаємо ID поста, щоб сервер знав, що саме оновлювати -->
+    <!-- ФІКС: Відключаємо Turbo для форми, щоб редактор завжди вантажився -->
+    <form asp-action="Edit" method="post" data-turbo="false">
         <input type="hidden" asp-for="Id" />
         
         <div class="mb-3">
@@ -23,8 +23,9 @@
         </div>
 
         <div class="mb-4">
-            <label asp-for="ContentMarkdown" class="form-label text-secondary meta-text">КОНТЕНТ (MARKDOWN)</label>
-            <textarea asp-for="ContentMarkdown" class="form-control bg-dark text-white border-secondary rounded-0" rows="10" required></textarea>
+            <label asp-for="ContentMarkdown" class="form-label text-secondary meta-text">КОНТЕНТ (ПІДТРИМУЄ DRAG-N-DROP МЕДІА)</label>
+            <!-- ФІКС: Додано id="ContentMarkdown" -->
+            <textarea asp-for="ContentMarkdown" id="ContentMarkdown" class="form-control bg-dark text-white border-secondary rounded-0" rows="10" required></textarea>
         </div>
 
         <div class="form-check mb-4">
@@ -37,3 +38,134 @@
         <button type="submit" class="btn btn-light rounded-0 w-100 fw-bold">ЗБЕРЕГТИ ЗМІНИ</button>
     </form>
 </div>
+
+@section Scripts {
+    <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+    <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+    <style>
+        .editor-toolbar { border-color: #6c757d; background-color: #1a1a1a; }
+        .editor-toolbar button { color: #fff !important; }
+        .editor-toolbar button:hover, .editor-toolbar button.active { background-color: #333; }
+        .CodeMirror { background-color: #121212; color: #fff; border-color: #6c757d; }
+        .editor-preview { background-color: #121212; }
+        
+        /* ФІКС КУРСОРА */
+        .CodeMirror-cursor { border-left: 2px solid #fff !important; }
+    </style>
+
+    <script>
+        function initMarkdownEditor() {
+            const textArea = document.getElementById('ContentMarkdown');
+            if (!textArea) return;
+
+            if (window.bandvaultMdeEdit) {
+                window.bandvaultMdeEdit.toTextArea();
+                window.bandvaultMdeEdit = null;
+            }
+
+            window.bandvaultMdeEdit = new EasyMDE({
+                element: textArea,
+                spellChecker: false,
+                autosave: {
+                    enabled: true,
+                    uniqueId: "bandvault_post_edit_@Model.Id", // Унікальний ID для конкретного поста
+                    delay: 1000,
+                },
+                uploadImage: true,
+                imageAccept: "image/*", 
+                imageUploadFunction: function(file, onSuccess, onError) {
+                    uploadMediaFile(file, window.bandvaultMdeEdit.codemirror, onSuccess, onError);
+                }
+            });
+
+            // Наш кастомний перехоплювач для АУДІО ТА ВІДЕО вішаємо на весь редактор
+            const editorWrapper = textArea.nextSibling; 
+            
+            editorWrapper.addEventListener('dragover', function(e) {
+                e.preventDefault();
+            });
+
+            editorWrapper.addEventListener('drop', function(e) {
+                if (e.dataTransfer.files.length > 0) {
+                    var file = e.dataTransfer.files[0];
+                    if (file.type.match('audio.*') || file.type.match('video.*')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        uploadMediaFile(file, window.bandvaultMdeEdit.codemirror, 
+                            (url) => {}, 
+                            (err) => { alert(err); }
+                        );
+                    }
+                }
+            }, true);
+
+            setTimeout(() => {
+                if (window.bandvaultMdeEdit && window.bandvaultMdeEdit.codemirror) {
+                    window.bandvaultMdeEdit.codemirror.refresh();
+                }
+            }, 100);
+        }
+
+        function uploadMediaFile(file, editor, onSuccess, onError) {
+            if (file.size > 20 * 1024 * 1024) {
+                onError("Файл занадто великий! Дозволено до 20 МБ.");
+                return;
+            }
+
+            var formData = new FormData();
+            formData.append("file", file);
+
+            var placeholder = `![Uploading ${file.name}...]()`;
+            var isMedia = file.type.match('audio.*') || file.type.match('video.*');
+            
+            if (isMedia) {
+                var doc = editor.getDoc();
+                var cursor = doc.getCursor();
+                doc.replaceRange(placeholder, cursor);
+            }
+            
+            fetch('/Posts/UploadMedia', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.type === 'image') {
+                    onSuccess(data.url); 
+                } else {
+                    var doc = editor.getDoc();
+                    var text = doc.getValue();
+                    var newText = text.replace(placeholder, 
+                        data.type === 'video' ? `\n<video controls style="width:100%; border-radius:8px; margin: 10px 0;"><source src="${data.url}"></video>\n` :
+                        `\n<audio controls class="w-100" style="margin: 10px 0;"><source src="${data.url}"></audio>\n`
+                    );
+                    doc.setValue(newText);
+                }
+            })
+            .catch(err => {
+                onError("Помилка завантаження: " + err.toString());
+                if (isMedia) {
+                    var doc = editor.getDoc();
+                    doc.setValue(doc.getValue().replace(placeholder, ""));
+                }
+            });
+        }
+
+        document.addEventListener("turbo:before-cache", function() {
+            if (window.bandvaultMdeEdit) {
+                window.bandvaultMdeEdit.toTextArea();
+                window.bandvaultMdeEdit = null;
+            }
+        });
+
+        document.removeEventListener("turbo:load", initMarkdownEditor); 
+        document.addEventListener("turbo:load", initMarkdownEditor);
+
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            initMarkdownEditor();
+        } else {
+            document.addEventListener("DOMContentLoaded", initMarkdownEditor);
+        }
+    </script>
+}

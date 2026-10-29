@@ -1,7 +1,8 @@
 using BandVault.Web.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.Google; // <--- ДОДАНО ДЛЯ GOOGLE OAUTH2
+using Microsoft.AspNetCore.Authentication.Google;
 
 namespace BandVault.Web
 {
@@ -17,29 +18,53 @@ namespace BandVault.Web
             // ============================================
             // АВТОРИЗАЦІЯ ЧЕРЕЗ COOKIE ТА GOOGLE OAUTH2 (C16)
             // ============================================
-            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-                .AddCookie(options =>
-                {
-                    options.LoginPath = "/Auth/Login";
-                    options.AccessDeniedPath = "/Auth/AccessDenied";
-                })
-                .AddGoogle(googleOptions =>
-                {
-                    // Ключі братимуться з appsettings.json. Якщо їх там немає, стоять заглушки, щоб проєкт не падав
-                    googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"] ?? "ЗАГЛУШКА_CLIENT_ID";
-                    googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? "ЗАГЛУШКА_CLIENT_SECRET";
-                });
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+            })
+            .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+            {
+                options.LoginPath = "/Auth/Login";
+                options.AccessDeniedPath = "/Auth/AccessDenied";
+            })
+            .AddGoogle(GoogleDefaults.AuthenticationScheme, googleOptions =>
+            {
+                var clientId = builder.Configuration["Authentication:Google:ClientId"];
+                var clientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
 
-            // Add services to the container.
+                googleOptions.ClientId = string.IsNullOrWhiteSpace(clientId) ? "DUMMY_CLIENT_ID" : clientId;
+                googleOptions.ClientSecret = string.IsNullOrWhiteSpace(clientSecret) ? "DUMMY_CLIENT_SECRET" : clientSecret;
+                googleOptions.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                googleOptions.ClaimActions.MapJsonKey("urn:google:picture", "picture");
+            });
+
+            // ============================================
+            // B9: КЕШУВАННЯ (REDIS DISTRIBUTED CACHE)
+            // ============================================
+            var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
+            if (!string.IsNullOrWhiteSpace(redisConnectionString))
+            {
+                builder.Services.AddStackExchangeRedisCache(options =>
+                {
+                    options.Configuration = redisConnectionString;
+                    options.InstanceName = "BandVault_";
+                });
+            }
+            else
+            {
+                builder.Services.AddDistributedMemoryCache();
+            }
+
             builder.Services.AddControllersWithViews()
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
                 });
 
+            // === УСІ СЕРВІСИ МАЮТЬ БУТИ ДО ЦЬОГО РЯДКА ===
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
             {
                 app.UseExceptionHandler("/Home/Error");
@@ -48,10 +73,6 @@ namespace BandVault.Web
 
             app.UseHttpsRedirection();
             app.UseRouting();
-
-            // ============================================
-            // ОБОВ'ЯЗКОВО UseAuthentication МАЄ БУТИ ДО UseAuthorization
-            // ============================================
             app.UseAuthentication();
             app.UseAuthorization();
 
@@ -62,9 +83,6 @@ namespace BandVault.Web
                 pattern: "{controller=Home}/{action=Index}/{id?}")
                 .WithStaticAssets();
 
-            // ============================================
-            // ЗАПУСК СІДЕРА ДЛЯ ЗАПОВНЕННЯ БАЗИ ДАНИХ
-            // ============================================
             using (var scope = app.Services.CreateScope())
             {
                 var services = scope.ServiceProvider;
@@ -81,7 +99,6 @@ namespace BandVault.Web
                     logger.LogError(ex, "Сталася помилка під час заповнення бази даних.");
                 }
             }
-            // ============================================
 
             app.Run();
         }

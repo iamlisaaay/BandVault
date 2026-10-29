@@ -2,6 +2,8 @@
 using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
 using BandVault.Web.Models;
+using Microsoft.Extensions.Caching.Distributed;
+using System.Text.Json;
 
 namespace BandVault.Web.Controllers.Api
 {
@@ -10,10 +12,12 @@ namespace BandVault.Web.Controllers.Api
     public class MerchApiController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IDistributedCache _cache; // Підключення кешу
 
-        public MerchApiController(ApplicationDbContext context)
+        public MerchApiController(ApplicationDbContext context, IDistributedCache cache)
         {
             _context = context;
+            _cache = cache;
         }
 
         // GET: api/merch
@@ -25,11 +29,23 @@ namespace BandVault.Web.Controllers.Api
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
-            // Пріоритет віддається skip/limit. Якщо їх немає - використовуються page/pageSize
             int actualLimit = limit ?? (pageSize < 1 ? 10 : pageSize);
             int actualSkip = skip ?? ((page < 1 ? 0 : page - 1) * actualLimit);
             int currentPage = (actualSkip / actualLimit) + 1;
 
+            // 1. Формуємо унікальний ключ для кешу (на основі параметрів запиту)
+            string cacheKey = $"merch_list_{query ?? "all"}_{actualSkip}_{actualLimit}";
+
+            // 2. СПРОБА ПРОЧИТАТИ З КЕШУ
+            var cachedData = await _cache.GetStringAsync(cacheKey);
+            if (!string.IsNullOrEmpty(cachedData))
+            {
+                // Повертаємо готовий JSON одразу з Redis
+                var result = JsonSerializer.Deserialize<object>(cachedData);
+                return Ok(result);
+            }
+
+            // 3. ЯКЩО КЕШУ НЕМАЄ — ЗВЕРТАЄМОСЬ ДО БАЗИ ДАНИХ
             var merchQuery = _context.MerchItems.AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(query))
@@ -41,7 +57,7 @@ namespace BandVault.Web.Controllers.Api
             var totalPages = (int)Math.Ceiling(totalItems / (double)actualLimit);
 
             var items = await merchQuery
-                .OrderBy(m => m.Id) // ДОДАНО СОРТУВАННЯ ДЛЯ ПАГІНАЦІЇ
+                .OrderBy(m => m.Id)
                 .Skip(actualSkip)
                 .Take(actualLimit)
                 .Select(m => new
@@ -57,7 +73,7 @@ namespace BandVault.Web.Controllers.Api
                 ? Url.Action(nameof(GetMerch), new { query, skip = actualSkip + actualLimit, limit = actualLimit })
                 : null;
 
-            return Ok(new
+            var responseData = new
             {
                 TotalItems = totalItems,
                 TotalPages = totalPages,
@@ -67,7 +83,18 @@ namespace BandVault.Web.Controllers.Api
                 Limit = actualLimit,
                 NextLink = nextLink,
                 Data = items
-            });
+            };
+
+            // 4. ЗБЕРІГАЄМО РЕЗУЛЬТАТ В КЕШ НА 60 СЕКУНД
+            var cacheOptions = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60)
+            };
+
+            var serializedData = JsonSerializer.Serialize(responseData);
+            await _cache.SetStringAsync(cacheKey, serializedData, cacheOptions);
+
+            return Ok(responseData);
         }
 
         // Ендпоінт для задачі F2 (Autocomplete категорій у формах)
@@ -92,9 +119,7 @@ namespace BandVault.Web.Controllers.Api
         public async Task<IActionResult> GetMerchItem(int id)
         {
             var merchItem = await _context.MerchItems.FindAsync(id);
-
             if (merchItem == null) return NotFound();
-
             return Ok(merchItem);
         }
 
@@ -103,10 +128,8 @@ namespace BandVault.Web.Controllers.Api
         public async Task<IActionResult> CreateMerchItem([FromBody] MerchItem merchItem)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-
             _context.MerchItems.Add(merchItem);
             await _context.SaveChangesAsync();
-
             return CreatedAtAction(nameof(GetMerchItem), new { id = merchItem.Id }, merchItem);
         }
 
@@ -115,7 +138,6 @@ namespace BandVault.Web.Controllers.Api
         public async Task<IActionResult> UpdateMerchItem(int id, [FromBody] MerchItem merchItem)
         {
             if (id != merchItem.Id) return BadRequest("ID mismatch");
-
             _context.Entry(merchItem).State = EntityState.Modified;
 
             try
@@ -127,7 +149,6 @@ namespace BandVault.Web.Controllers.Api
                 if (!MerchItemExists(id)) return NotFound();
                 else throw;
             }
-
             return NoContent();
         }
 
@@ -137,10 +158,8 @@ namespace BandVault.Web.Controllers.Api
         {
             var merchItem = await _context.MerchItems.FindAsync(id);
             if (merchItem == null) return NotFound();
-
             _context.MerchItems.Remove(merchItem);
             await _context.SaveChangesAsync();
-
             return NoContent();
         }
 

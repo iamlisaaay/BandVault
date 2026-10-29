@@ -5,7 +5,8 @@
         <h3 class="section-title border-0 mb-0 pb-0">Стрічка фан-клубу</h3>
         @if (ViewBag.IsAdmin)
         {
-            <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold">+ Написати пост</a>
+            <!-- ФІКС ТУРБО: Додано data-turbo="false" -->
+            <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold" data-turbo="false">+ Написати пост</a>
         }
     </div>
 
@@ -36,11 +37,23 @@
 
                     @if (ViewBag.IsAdmin || ViewBag.UserTier >= post.RequiredTierLevel || post.RequiredTierLevel == 0)
                     {
-                        <!-- Замість рендерингу всього маркдауну тут показуємо шматок тексту, а повний у Details -->
-                        <p class="card-text text-white-50">
-                            @(post.ContentMarkdown.Length > 150 ? post.ContentMarkdown.Substring(0, 150) + "..." : post.ContentMarkdown)
+                        <!-- ФОРМАТУВАННЯ ПРЕВ'Ю (Приховуємо HTML теги медіа) -->
+                       
+                            string previewText = post.ContentMarkdown ?? "";
+                            previewText = System.Text.RegularExpressions.Regex.Replace(previewText, @"<video.*?>.*?</video>", "[🎥 Відео]");
+                            previewText = System.Text.RegularExpressions.Regex.Replace(previewText, @"<audio.*?>.*?</audio>", "[🎵 Аудіо]");
+                            previewText = System.Text.RegularExpressions.Regex.Replace(previewText, @"!\[.*?\]\(.*?\)", "[🖼 Картинка]");
+                            previewText = System.Text.RegularExpressions.Regex.Replace(previewText, @"\[(.*?)\]\(.*?\)", "$1"); 
+
+                            if (previewText.Length > 150) {
+                                previewText = previewText.Substring(0, 150) + "...";
+                           
+                        }
+                        
+                        <p class="card-text text-white-50" style="white-space: pre-wrap;">
+                            @previewText
                         </p>
-                        <a asp-action="Details" asp-route-id="@post.Id" class="btn btn-sm btn-outline-light rounded-0">Читати далі</a>
+                        <a asp-action="Details" asp-route-id="@post.Id" class="btn btn-sm btn-outline-light rounded-0 mt-2">Читати далі</a>
                     }
                     else
                     {
@@ -58,7 +71,8 @@
                 @if (ViewBag.IsAdmin && post.AuthorId == ViewBag.CurrentUserId)
                 {
                     <div class="card-footer bg-dark border-secondary d-flex gap-2">
-                        <a asp-action="Edit" asp-route-id="@post.Id" class="btn btn-sm btn-outline-secondary rounded-0">Редагувати</a>
+                        <!-- ФІКС ТУРБО: Додано data-turbo="false" для сторінки редагування -->
+                        <a asp-action="Edit" asp-route-id="@post.Id" class="btn btn-sm btn-outline-secondary rounded-0" data-turbo="false">Редагувати</a>
                         <a asp-action="Delete" asp-route-id="@post.Id" class="btn btn-sm btn-outline-danger rounded-0">Видалити</a>
                     </div>
                 }
