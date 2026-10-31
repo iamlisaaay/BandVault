@@ -18,22 +18,16 @@ namespace BandVault.Web.Controllers
             _env = env;
         }
 
-        // GET: /Merch/
         public async Task<IActionResult> Index()
         {
             var merch = await _context.MerchItems.Include(m => m.Category).ToListAsync();
             return View(merch);
         }
 
-
-        // CREATE
-       
         [Authorize]
         public IActionResult Create()
         {
             if (!User.HasClaim("IsAdmin", "true")) return Forbid();
-
-          
             ViewBag.Categories = new SelectList(_context.MerchCategories, "Id", "Name");
             return View();
         }
@@ -47,7 +41,6 @@ namespace BandVault.Web.Controllers
 
             if (ModelState.IsValid)
             {
-            
                 if (imageFile != null && imageFile.Length > 0)
                 {
                     string fileName = Guid.NewGuid().ToString() + Path.GetExtension(imageFile.FileName);
@@ -65,15 +58,11 @@ namespace BandVault.Web.Controllers
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
-          
-            merchItem.Category = await _context.MerchCategories.FindAsync(merchItem.CategoryId);
+
+            // При помилці валідації повертаємо список
             ViewBag.Categories = new SelectList(_context.MerchCategories, "Id", "Name", merchItem.CategoryId);
             return View(merchItem);
         }
-
-
-        // EDIT
-
 
         [Authorize]
         public async Task<IActionResult> Edit(int? id)
@@ -82,7 +71,6 @@ namespace BandVault.Web.Controllers
 
             if (id == null) return NotFound();
 
-            // ФІКС: Підвантажуємо поточну категорію для Select2
             var merchItem = await _context.MerchItems
                 .Include(m => m.Category)
                 .FirstOrDefaultAsync(m => m.Id == id);
@@ -116,7 +104,6 @@ namespace BandVault.Web.Controllers
                     existingItem.StockQuantity = merchItem.StockQuantity;
                     existingItem.CategoryId = merchItem.CategoryId;
 
-                 
                     if (imageFile != null && imageFile.Length > 0)
                     {
                         string fileName = Guid.NewGuid().ToString() + Path.GetExtension(imageFile.FileName);
@@ -139,13 +126,13 @@ namespace BandVault.Web.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
+
+            // ФІКС: Підвантажуємо категорію, якщо була помилка валідації, щоб Select2 не був порожнім
+            merchItem.Category = await _context.MerchCategories.FindAsync(merchItem.CategoryId);
             ViewBag.Categories = new SelectList(_context.MerchCategories, "Id", "Name", merchItem.CategoryId);
             return View(merchItem);
         }
 
-        
-        // DELETE
-   
         [Authorize]
         public async Task<IActionResult> Delete(int? id)
         {
@@ -172,14 +159,12 @@ namespace BandVault.Web.Controllers
             var merchItem = await _context.MerchItems.FindAsync(id);
             if (merchItem != null)
             {
-                // Опціонально: можна видаляти і сам файл картинки з диска
                 _context.MerchItems.Remove(merchItem);
                 await _context.SaveChangesAsync();
             }
             return RedirectToAction(nameof(Index));
         }
 
-        // GET: /Merch/Details/5
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null) return NotFound();

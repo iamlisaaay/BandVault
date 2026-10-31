@@ -15,7 +15,7 @@ namespace BandVault.Web.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
-        private readonly IConfiguration _config; // Додано для доступу до токена Telegram
+        private readonly IConfiguration _config;
 
         public PostsController(ApplicationDbContext context, IWebHostEnvironment env, IConfiguration config)
         {
@@ -132,7 +132,6 @@ namespace BandVault.Web.Controllers
                 _context.Posts.Add(post);
                 await _context.SaveChangesAsync();
 
-                // ФІКС B2: Інтеграція з Telegram API
                 if (post.IsPublished)
                 {
                     await SendTelegramNotification(post);
@@ -144,7 +143,7 @@ namespace BandVault.Web.Controllers
             return Forbid();
         }
 
-        // МЕТОД ДЛЯ ВІДПРАВКИ ПОВІДОМЛЕННЯ В TELEGRAM
+        // ФІКС B2: Виправлено парсинг Telegram, щоб не падало на спецсимволах
         private async Task SendTelegramNotification(Post post)
         {
             try
@@ -156,16 +155,19 @@ namespace BandVault.Web.Controllers
                     return;
 
                 string postUrl = Url.Action("Details", "Posts", new { id = post.Id }, Request.Scheme) ?? "";
-                string message = $"🔥 *Новий пост у фан-клубі!*\n\n*{post.Title}*\n\n👉 [Читати повністю]({postUrl})";
+
+                // Використовуємо HTML замість Markdown для надійності
+                string safeTitle = System.Net.WebUtility.HtmlEncode(post.Title);
+                string message = $"🔥 <b>Новий пост у фан-клубі!</b>\n\n<b>{safeTitle}</b>\n\n👉 <a href=\"{postUrl}\">Читати повністю</a>";
 
                 using var client = new HttpClient();
-                string requestUrl = $"https://api.telegram.org/bot{token}/sendMessage?chat_id={chatId}&text={HttpUtility.UrlEncode(message)}&parse_mode=Markdown";
+                string requestUrl = $"https://api.telegram.org/bot{token}/sendMessage?chat_id={HttpUtility.UrlEncode(chatId)}&text={HttpUtility.UrlEncode(message)}&parse_mode=HTML";
 
                 await client.GetAsync(requestUrl);
             }
             catch
             {
-                // Ігноруємо помилки мережі, щоб не заблокувати створення посту
+                // Ігноруємо помилки мережі
             }
         }
 

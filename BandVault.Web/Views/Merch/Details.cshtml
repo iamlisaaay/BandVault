@@ -64,6 +64,23 @@
                         <h6 class="text-uppercase meta-text text-secondary border-bottom border-secondary pb-2 mb-3">Опис товару</h6>
                         <p class="card-text text-light" style="white-space: pre-wrap; line-height: 1.6;">@Model.Description</p>
                     </div>
+                    <!-- ФОРМА КУПІВЛІ -->
+                    <form asp-controller="Cart" asp-action="AddToCart" method="post" class="mb-5 flex-grow-1" data-turbo="false">
+                        <input type="hidden" name="merchId" value="@Model.Id" />
+                        
+                        <h6 class="text-uppercase meta-text text-secondary border-bottom border-secondary pb-2 mb-3">Опис товару</h6>
+                        <p class="card-text text-light mb-4" style="white-space: pre-wrap; line-height: 1.6;">@Model.Description</p>
+                        
+                        @if (Model.StockQuantity > 0)
+                        {
+                            <div class="d-flex align-items-center gap-3">
+                                <input type="number" name="quantity" value="1" min="1" max="@Model.StockQuantity" class="form-control bg-dark text-white border-secondary rounded-0 text-center" style="width: 80px;" />
+                                <button type="submit" class="btn btn-light rounded-0 text-uppercase fw-bold px-4 py-2 flex-grow-1" style="letter-spacing: 2px;">
+                                    У КОШИК 🛒
+                                </button>
+                            </div>
+                        }
+                    </form>
 
                     <!-- Кнопки дій -->
                     @if (User.HasClaim("IsAdmin", "true"))

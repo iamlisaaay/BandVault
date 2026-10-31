@@ -13,11 +13,13 @@ namespace BandVault.Web.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _config;
+        private readonly IWebHostEnvironment _env; // Додано для перевірки режиму
 
-        public AuthController(ApplicationDbContext context, IConfiguration config)
+        public AuthController(ApplicationDbContext context, IConfiguration config, IWebHostEnvironment env)
         {
             _context = context;
             _config = config;
+            _env = env;
         }
 
         [HttpGet]
@@ -32,7 +34,21 @@ namespace BandVault.Web.Controllers
         }
 
         // ============================================
-        // GOOGLE OAUTH2 ЛОГІКА (C16)
+        // 1. ВХІД ЧЕРЕЗ EMAIL (Для тестів та локальної розробки)
+        // ============================================
+        [HttpPost]
+        public async Task<IActionResult> Login(string email)
+        {
+            // ФІКС 405: Дозволяємо цей метод тільки при локальній розробці
+            if (!_env.IsDevelopment()) return Forbid();
+
+            if (string.IsNullOrWhiteSpace(email)) return View();
+
+            return await ProcessUserLogin(email.Trim().ToLower(), null, null, "/");
+        }
+
+        // ============================================
+        // 2. GOOGLE OAUTH2 ЛОГІКА (C16)
         // ============================================
         [HttpPost]
         public IActionResult ExternalLogin(string returnUrl = "/")
@@ -66,7 +82,7 @@ namespace BandVault.Web.Controllers
         }
 
         // ============================================
-        // СПІЛЬНИЙ МЕТОД ДЛЯ СТВОРЕННЯ/ОНОВЛЕННЯ ЮЗЕРА
+        // 3. СПІЛЬНИЙ МЕТОД ДЛЯ СТВОРЕННЯ/ОНОВЛЕННЯ ЮЗЕРА
         // ============================================
         private async Task<IActionResult> ProcessUserLogin(string userEmail, string? displayName, string? avatarUrl, string returnUrl)
         {
@@ -157,7 +173,6 @@ namespace BandVault.Web.Controllers
         [HttpGet]
         public IActionResult AccessDenied()
         {
-            // Якщо користувач не має прав доступу, покажемо йому гарну сторінку 403
             return View();
         }
     }

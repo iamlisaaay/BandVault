@@ -1,11 +1,20 @@
-﻿namespace BandVault.Web.Models
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace BandVault.Web.Models
 {
     public class Order
     {
         public int Id { get; set; }
         public DateTime OrderDate { get; set; } = DateTime.UtcNow;
         public decimal TotalAmount { get; set; }
-        public string DeliveryAddress { get; set; } = string.Empty;
+
+        // Нові поля для оформлення
+        [Required] public string CustomerName { get; set; } = string.Empty;
+        [Required] public string CustomerEmail { get; set; } = string.Empty;
+        [Required] public string CustomerPhone { get; set; } = string.Empty;
+        [Required] public string PaymentMethod { get; set; } = "Готівкою кур'єру";
+
+        [Required] public string DeliveryAddress { get; set; } = string.Empty;
         public double DeliveryLat { get; set; }
         public double DeliveryLng { get; set; }
         public string? InvoiceUrl { get; set; }

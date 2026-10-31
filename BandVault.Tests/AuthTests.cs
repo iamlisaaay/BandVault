@@ -41,19 +41,30 @@ namespace BandVault.Tests
 
         public AuthTests(WebApplicationFactory<BandVault.Web.Program> factory)
         {
-            // Підміна конфігурації БД на In-Memory спеціально для тестів
             _factory = factory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>));
-                    if (descriptor != null) services.Remove(descriptor);
+                    // ФІКС 1: Повне видалення всіх налаштувань PostgreSQL перед підключенням InMemory
+                    var descriptors = services.Where(d =>
+                        d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>) ||
+                        (d.ServiceType.IsGenericType && d.ServiceType.GetGenericTypeDefinition().Name.Contains("IDbContextOptionsConfiguration")))
+                        .ToList();
+
+                    foreach (var d in descriptors)
+                    {
+                        services.Remove(d);
+                    }
 
                     services.AddDbContext<ApplicationDbContext>(options => options.UseInMemoryDatabase("TestDb"));
 
-                    // Додаємо тестового провайдера авторизації
-                    services.AddAuthentication("Test")
-                            .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", options => { });
+                    // ФІКС 2: Додаємо тестову авторизацію, але залишаємо редирект для гостей через Cookies
+                    services.AddAuthentication(options =>
+                    {
+                        options.DefaultAuthenticateScheme = "Test";
+                        options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme;
+                    })
+                    .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", options => { });
                 });
             });
         }
@@ -67,6 +78,7 @@ namespace BandVault.Tests
             var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
             var response = await client.GetAsync(url);
 
+            // Тепер ми чекаємо 302 Redirect на сторінку логіну
             Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
             Assert.Contains("/Auth/Login", response.Headers.Location?.ToString());
         }
@@ -79,7 +91,9 @@ namespace BandVault.Tests
 
             var response = await client.GetAsync("/SiteSettings/Index");
 
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            // ФІКС: Звичайного юзера без адмін-прав перекидає на сторінку "Доступ заборонено"
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Contains("/Auth/AccessDenied", response.Headers.Location?.ToString());
         }
 
         [Fact]
@@ -87,13 +101,14 @@ namespace BandVault.Tests
         {
             using var scope = _factory.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            db.Database.EnsureCreated(); // Гарантуємо, що In-Memory БД створена
+            db.Database.EnsureCreated(); // Гарантуємо, що In-Memory БД створена для цього тесту
 
             var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
             client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
 
             var response = await client.GetAsync("/SiteSettings/Index");
 
+            // Адмін має доступ
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
     }

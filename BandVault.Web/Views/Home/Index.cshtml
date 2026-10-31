@@ -3,27 +3,28 @@
 
 @{
     ViewData["Title"] = ViewBag.BandName;
-    
+
     string GetYouTubeId(string url)
     {
         if (string.IsNullOrEmpty(url)) return null;
-        try 
+        try
         {
             if (url.Contains("v=")) return url.Split("v=")[1].Substring(0, 11);
             if (url.Contains("youtu.be/")) return url.Split("youtu.be/")[1].Substring(0, 11);
-        } 
-        catch { return null; } // ФІКС: Захист від падіння на коротких чи неправильних посиланнях
-        
+        }
+        catch { return null; }
         return null;
     }
-    
+
     var videoId = GetYouTubeId(ViewBag.HeroVideoUrl);
     bool isAuth = ViewBag.IsAuthenticated;
     int userTier = ViewBag.UserTierLevel;
 }
 
 <style>
-    html { scroll-behavior: smooth; }
+    html {
+        scroll-behavior: smooth;
+    }
 
     .group-hero {
         position: relative;
@@ -32,8 +33,8 @@
         right: 50%;
         margin-left: -50vw;
         margin-right: -50vw;
-        height: 56.25vw; 
-        max-height: 100vh; 
+        height: 56.25vw;
+        max-height: 100vh;
         background-color: #050505;
         overflow: hidden;
         display: flex;
@@ -42,25 +43,88 @@
         align-items: center;
     }
 
-    .youtube-bg-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
-    .youtube-bg-container::after { content: ""; position: absolute; inset: 0; z-index: 1; background: rgba(10, 10, 10, 0.65); }
-    .youtube-bg-iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-    .hero-content { position: relative; z-index: 2; text-align: center; width: 100%; }
-    .hero-title { font-family: 'Courier New', Courier, monospace; letter-spacing: 5px; margin-bottom: 2rem; font-size: 1.5rem; }
-    .hero-subtitle { letter-spacing: 2px; color: #ccc; margin-bottom: 3rem; }
+    .youtube-bg-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+    }
 
-    .home-preview-wrapper { max-height: 100px; overflow: hidden; position: relative; margin-bottom: 10px; }
-    .home-preview-fade { position: absolute; bottom: 0; left: 0; width: 100%; height: 50px; background: linear-gradient(to bottom, rgba(33, 37, 41, 0) 0%, rgba(33, 37, 41, 1) 100%); pointer-events: none; }
-    .home-preview-wrapper img, .home-preview-wrapper video { max-height: 40px !important; width: auto; border-radius: 4px; display: block; }
-    .home-preview-wrapper audio { height: 25px; width: 180px; }
+        .youtube-bg-container::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            background: rgba(10, 10, 10, 0.65);
+        }
+
+    .youtube-bg-iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        width: 100%;
+    }
+
+    .hero-title {
+        font-family: 'Courier New', Courier, monospace;
+        letter-spacing: 5px;
+        margin-bottom: 2rem;
+        font-size: 1.5rem;
+    }
+
+    .hero-subtitle {
+        letter-spacing: 2px;
+        color: #ccc;
+        margin-bottom: 3rem;
+    }
+
+    .home-preview-wrapper {
+        max-height: 100px;
+        overflow: hidden;
+        position: relative;
+        margin-bottom: 10px;
+    }
+
+    .home-preview-fade {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 50px;
+        background: linear-gradient(to bottom, rgba(33, 37, 41, 0) 0%, rgba(33, 37, 41, 1) 100%);
+        pointer-events: none;
+    }
+
+    .home-preview-wrapper img, .home-preview-wrapper video {
+        max-height: 40px !important;
+        width: auto;
+        border-radius: 4px;
+        display: block;
+    }
+
+    .home-preview-wrapper audio {
+        height: 25px;
+        width: 180px;
+    }
 </style>
 
 <div class="group-hero mb-5">
     @if (!string.IsNullOrEmpty(videoId))
     {
         <div class="youtube-bg-container">
-            <iframe class="youtube-bg-iframe" 
-                    src="https://www.youtube.com/embed/@videoId?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=@videoId&playsinline=1" 
+            <iframe class="youtube-bg-iframe"
+                    src="https://www.youtube.com/embed/@videoId?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=@videoId&playsinline=1"
                     frameborder="0" allow="autoplay; fullscreen">
             </iframe>
         </div>
@@ -96,8 +160,7 @@
                 <a href="#news" class="btn btn-light rounded-0 text-uppercase px-4 py-2 fw-bold me-2" style="letter-spacing: 2px;">
                     Читати новини
                 </a>
-                
-                <!-- ФІКС B6: Додано кнопку для зміни тарифу для вже зареєстрованих юзерів -->
+
                 <button type="button" class="btn btn-outline-warning rounded-0 text-uppercase px-4 py-2 fw-bold" style="letter-spacing: 2px;" data-bs-toggle="modal" data-bs-target="#tierModal">
                     Змінити рівень
                 </button>
@@ -108,7 +171,7 @@
 
 <div class="container my-5 pt-4" id="news">
     <h4 class="text-uppercase text-secondary mb-5 text-center" style="letter-spacing: 4px;">Секретні матеріали</h4>
-    
+
     <div class="row row-cols-1 g-4 max-w-75 mx-auto" style="max-width: 800px; margin: 0 auto;">
         @if (Model != null && Model.Any())
         {
@@ -119,7 +182,7 @@
                     <div class="col">
                         <div class="card bg-transparent border-secondary text-center py-5 rounded-0" style="border-style: dashed !important;">
                             <h5 class="text-secondary meta-text mb-3">🔒 ЦЕЙ КОНТЕНТ ДОСТУПНИЙ ТІЛЬКИ ДЛЯ TIER @post.RequiredTierLevel+</h5>
-                            @if(!isAuth)
+                            @if (!isAuth)
                             {
                                 <button class="btn btn-sm btn-outline-secondary rounded-0 text-uppercase mx-auto" data-bs-toggle="modal" data-bs-target="#tierModal">Долучитися до фан-клубу</button>
                             }
@@ -139,7 +202,7 @@
                                     @post.CreatedAt.ToString("dd.MM.yyyy") | TIER @post.RequiredTierLevel
                                 </h6>
                                 <h4 class="card-title fw-bold text-uppercase mb-3">@post.Title</h4>
-                                
+
                                 <div class="home-preview-wrapper text-light opacity-75">
                                     @Html.Raw(Markdown.ToHtml(post.ContentMarkdown ?? "", new MarkdownPipelineBuilder().UseAdvancedExtensions().Build()))
                                     <div class="home-preview-fade"></div>
@@ -164,12 +227,12 @@
     <div class="card bg-transparent border-secondary rounded-0 text-center p-5" style="box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
         <h3 class="fw-bold text-uppercase text-white mb-3" style="letter-spacing: 2px;">Долучайся до інсайдерів</h3>
         <p class="text-secondary mb-4 meta-text">Залиш свій email, щоб першим дізнаватися про нові поставки мерчу та закриті заходи.</p>
-        
+
         <form class="d-flex justify-content-center mx-auto mb-4" style="max-width: 500px;" onsubmit="event.preventDefault(); alert('Дякуємо за підписку!');">
             <input type="email" class="form-control bg-dark border-secondary text-white rounded-0 me-2" placeholder="ТВІЙ EMAIL..." required style="letter-spacing: 1px;">
             <button type="submit" class="btn btn-light rounded-0 text-uppercase fw-bold px-4" style="letter-spacing: 1px;">Підписатися</button>
         </form>
-        
+
         <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
             <a href="@ViewBag.Social_YouTube" class="text-secondary text-decoration-none meta-text hover-light">YOUTUBE</a>
             <span class="text-secondary">|</span>
@@ -181,7 +244,7 @@
             <span class="text-secondary">|</span>
             <a href="@ViewBag.Social_Telegram" class="text-secondary text-decoration-none meta-text hover-light">TELEGRAM</a>
         </div>
-        
+
         <p class="mt-4 text-secondary meta-text" style="font-size: 0.8rem;">
             BOOKING & CONTACT: <a href="mailto:@ViewBag.ContactEmail" class="text-secondary text-decoration-none border-bottom border-secondary pb-1">@ViewBag.ContactEmail</a>
         </p>
@@ -189,70 +252,96 @@
 </div>
 
 <div class="modal fade" id="tierModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered">
-    <div class="modal-content bg-dark border-secondary rounded-0 text-white" style="box-shadow: 0 0 50px rgba(0,0,0,0.8);">
-      <div class="modal-header border-bottom border-secondary p-4">
-        <h5 class="modal-title text-uppercase fw-bold mx-auto" style="letter-spacing: 3px;">Обери свій рівень доступу</h5>
-        <button type="button" class="btn-close btn-close-white position-absolute end-0 me-4" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      
-      <div class="modal-body p-5">
-        <div class="row row-cols-1 row-cols-md-3 g-4 justify-content-center">
-            
-            @if (ViewBag.Tiers != null)
-            {
-                foreach (var tier in ViewBag.Tiers)
-                {
-                    <div class="col">
-                        <div class="card h-100 bg-transparent rounded-0 text-center @(tier.IsRecommended ? "border-light" : "border-secondary")" style="transition: transform 0.3s;">
-                            
-                            @if (tier.IsRecommended)
-                            {
-                                <div class="bg-light text-dark text-uppercase fw-bold meta-text py-1" style="font-size: 0.75rem; letter-spacing: 2px;">
-                                    Найкращий вибір
-                                </div>
-                            }
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content bg-dark border-secondary rounded-0 text-white" style="box-shadow: 0 0 50px rgba(0,0,0,0.8);">
+            <div class="modal-header border-bottom border-secondary p-4">
+                <h5 class="modal-title text-uppercase fw-bold mx-auto" style="letter-spacing: 3px;">Обери свій рівень доступу</h5>
+                <button type="button" class="btn-close btn-close-white position-absolute end-0 me-4" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
 
-                            <div class="card-body p-4 d-flex flex-column">
-                                <h4 class="text-uppercase fw-bold mb-1" style="letter-spacing: 2px;">@tier.Name</h4>
-                                <p class="text-secondary meta-text mb-4">TIER @tier.Level</p>
-                                
-                                <h2 class="fw-bold mb-4">
-                                    @tier.Price.ToString("0.00")<span style="font-size: 1rem; color: #888;"> $ / МІС</span>
-                                </h2>
+            <div class="modal-body p-5">
+                <div class="row row-cols-1 row-cols-md-3 g-4 justify-content-center">
 
-                                <ul class="list-unstyled text-start mb-4 flex-grow-1">
-                                    @if (tier.Features != null)
+                    @if (ViewBag.Tiers != null)
+                    {
+                        foreach (var tier in ViewBag.Tiers)
+                        {
+                            <div class="col">
+                                <div class="card h-100 bg-transparent rounded-0 text-center @(tier.IsRecommended ? "border-light" : "border-secondary")" style="transition: transform 0.3s;">
+
+                                    @if (tier.IsRecommended)
                                     {
-                                        foreach (var feature in tier.Features)
-                                        {
-                                            <li class="mb-3 text-light" style="font-size: 0.9rem;">
-                                                <span class="text-success me-2">✓</span> @feature.Description
-                                            </li>
-                                        }
+                                        <div class="bg-light text-dark text-uppercase fw-bold meta-text py-1" style="font-size: 0.75rem; letter-spacing: 2px;">
+                                            Найкращий вибір
+                                        </div>
                                     }
-                                </ul>
 
-                                <form asp-controller="Users" asp-action="ChangeTier" method="post" class="mt-auto">
-                                    <input type="hidden" name="tierId" value="@tier.Id" />
-                                    <button type="submit" class="btn @(tier.IsRecommended ? "btn-light" : "btn-outline-light") rounded-0 text-uppercase fw-bold w-100 py-2" style="letter-spacing: 1px;">
-                                        Обрати
-                                    </button>
-                                </form>
+                                    <div class="card-body p-4 d-flex flex-column">
+                                        <h4 class="text-uppercase fw-bold mb-1" style="letter-spacing: 2px;">@tier.Name</h4>
+                                        <p class="text-secondary meta-text mb-4">TIER @tier.Level</p>
+
+                                        <h2 class="fw-bold mb-4">
+                                            @tier.Price.ToString("0.00")<span style="font-size: 1rem; color: #888;"> $ / МІС</span>
+                                        </h2>
+
+                                        <ul class="list-unstyled text-start mb-4 flex-grow-1">
+                                            @if (tier.Features != null)
+                                            {
+                                                foreach (var feature in tier.Features)
+                                                {
+                                                    <li class="mb-3 text-light" style="font-size: 0.9rem;">
+                                                        <span class="text-success me-2">✓</span> @feature.Description
+                                                    </li>
+                                                }
+                                            }
+                                        </ul>
+
+                                        <form asp-controller="Users" asp-action="ChangeTier" method="post" class="mt-auto">
+                                            <input type="hidden" name="tierId" value="@tier.Id" />
+                                            <button type="submit" class="btn @(tier.IsRecommended ? "btn-light" : "btn-outline-light") rounded-0 text-uppercase fw-bold w-100 py-2" style="letter-spacing: 1px;">
+                                                Обрати
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
                             </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center text-secondary w-100 py-5">
+                            <p class="meta-text">РІВНІ ПІДПИСКИ ЩЕ НЕ НАЛАШТОВАНІ АДМІНІСТРАТОРОМ.</p>
                         </div>
-                    </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- ФІКС: Автоматичне відкриття модалки, якщо користувач прийшов за посиланням ?changeTier=1 -->
+    <script>
+        document.addEventListener("turbo:load", function() {
+            if (new URLSearchParams(window.location.search).get('changeTier') === '1') {
+                var modalElement = document.getElementById('tierModal');
+                if (modalElement) {
+                    var tierModal = new bootstrap.Modal(modalElement);
+                    tierModal.show();
                 }
             }
-            else
-            {
-                <div class="text-center text-secondary w-100 py-5">
-                    <p class="meta-text">РІВНІ ПІДПИСКИ ЩЕ НЕ НАЛАШТОВАНІ АДМІНІСТРАТОРОМ.</p>
-                </div>
+        });
+
+        // Для звичайного завантаження (якщо Turbo відключено)
+        document.addEventListener("DOMContentLoaded", function() {
+            if (new URLSearchParams(window.location.search).get('changeTier') === '1') {
+                var modalElement = document.getElementById('tierModal');
+                if (modalElement) {
+                    var tierModal = new bootstrap.Modal(modalElement);
+                    tierModal.show();
+                }
             }
-            
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+        });
+    </script>
+}

@@ -1,0 +1,60 @@
+﻿@model IEnumerable<BandVault.Web.Controllers.CartController.CartItemDto>
+
+<div class="container my-5 w-75">
+    <h2 class="text-uppercase fw-bold border-bottom border-secondary pb-3 mb-4">КОШИК</h2>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-dark bg-transparent border-secondary text-center p-5 rounded-0">
+            <h4 class="text-secondary meta-text mb-3">ТВІЙ КОШИК ПОРОЖНІЙ</h4>
+            <a asp-controller="Merch" asp-action="Index" class="btn btn-outline-light rounded-0 text-uppercase fw-bold px-4">ПОВЕРНУТИСЯ ДО МАГАЗИНУ</a>
+        </div>
+    }
+    else
+    {
+        <div class="card bg-transparent border-secondary rounded-0 p-4">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle border-secondary mb-0">
+                    <thead class="meta-text text-secondary border-bottom border-secondary">
+                        <tr>
+                            <th>ТОВАР</th>
+                            <th class="text-center">КІЛЬКІСТЬ</th>
+                            <th class="text-end">ЦІНА</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td class="d-flex align-items-center gap-3 border-0 py-3">
+                                    <img src="@(item.ImageUrl ?? "https://via.placeholder.com/50")" alt="Cover" style="width: 50px; height: 50px; object-fit: cover;" class="border border-secondary">
+                                    <span class="fw-bold text-white text-uppercase" style="font-size: 0.9rem;">@item.Title</span>
+                                </td>
+                                <td class="text-center border-0 text-white fw-bold">@item.Quantity</td>
+                                <td class="text-end border-0 text-success fw-bold">@((item.Price * item.Quantity).ToString("0.00")) $</td>
+                                <td class="text-end border-0">
+                                    <a asp-action="RemoveFromCart" asp-route-merchId="@item.MerchItemId" class="btn btn-sm btn-outline-danger border-0 rounded-0" title="Видалити">✕</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top border-secondary">
+                <a asp-controller="Merch" asp-action="Index" class="text-secondary text-decoration-none text-uppercase meta-text" style="transition: 0.2s;">
+                    &larr; ПРОДОВЖИТИ ПОКУПКИ
+                </a>
+                
+                <div class="d-flex align-items-center gap-4">
+                    <span class="text-uppercase meta-text text-secondary mb-0">Всього: <span class="text-white fs-4 fw-bold ms-2">@ViewBag.Total.ToString("0.00") $</span></span>
+                    
+                    <a asp-controller="Orders" asp-action="Checkout" class="btn btn-light rounded-0 text-uppercase fw-bold px-4 py-2" style="letter-spacing: 1px;" data-turbo="false">
+                        ОФОРМИТИ
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+</div>

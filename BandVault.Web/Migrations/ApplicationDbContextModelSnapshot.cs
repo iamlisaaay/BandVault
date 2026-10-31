@@ -101,7 +101,7 @@ namespace BandVault.Web.Migrations
                         .HasColumnType("text");
 
                     b.Property<decimal?>("FanPrice")
-                        .HasColumnType("numeric");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ImageUrl")
                         .HasColumnType("text");
@@ -131,6 +131,18 @@ namespace BandVault.Web.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("CustomerEmail")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CustomerPhone")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("DeliveryAddress")
                         .IsRequired()
                         .HasColumnType("text");
@@ -146,6 +158,10 @@ namespace BandVault.Web.Migrations
 
                     b.Property<DateTime>("OrderDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<int>("StatusId")
                         .HasColumnType("integer");

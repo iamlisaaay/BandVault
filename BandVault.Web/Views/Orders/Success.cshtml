@@ -1,0 +1,13 @@
+﻿@model int
+
+<div class="container my-5 py-5 text-center">
+    <div class="d-inline-block border border-success p-5" style="background-color: #0a1f10;">
+        <h1 class="text-success mb-3">✓ ЗАМОВЛЕННЯ ПРИЙНЯТО</h1>
+        <p class="text-white fs-5 mb-4">Номер вашого замовлення: <strong>#@Model</strong></p>
+        <p class="text-secondary meta-text mb-4">Ми надішлемо вам трек-номер одразу після відправки.</p>
+        
+        <a asp-controller="Home" asp-action="Index" class="btn btn-outline-light rounded-0 text-uppercase fw-bold px-4 py-2">
+            НА ГОЛОВНУ
+        </a>
+    </div>
+</div>

@@ -1,19 +1,22 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+﻿@inject BandVault.Web.Data.ApplicationDbContext DbContext
+<!DOCTYPE html>
+<html lang="uk">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - BandVault.Web</title>
     
-    <!-- ФІКС C7: OpenGraph Метатеги для красивого прев'ю в соцмережах -->
+    <!-- ФІКС C7: SEO та OpenGraph -->
+    <meta name="description" content="Офіційний фан-клуб гурту BandVault. Ексклюзивні новини та мерч." />
     <meta property="og:title" content="@(ViewData["Title"] ?? "BandVault Fanclub")" />
     <meta property="og:description" content="Офіційний фан-клуб та магазин ексклюзивного мерчу." />
     <meta property="og:image" content="/images/avatars/default-og.jpg" />
     <meta property="og:type" content="website" />
+    <link rel="icon" href="~/favicon.ico" />
 
     <script type="importmap"></script>
 
-    <!-- ФІКС C9: Google Analytics (Заглушка для аналітики) -->
+    <!-- ФІКС C9: Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-BANDVAULT"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -40,7 +43,7 @@
                 </button>
 
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav me-auto">
+                   <ul class="navbar-nav me-auto">
                         <li class="nav-item">
                             <a class="nav-link text-light" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
                         </li>
@@ -56,17 +59,26 @@
                             <li class="nav-item">
                                 <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Posts" asp-action="Index">Стрічка</a>
                             </li>
+                          
+                            <li class="nav-item ms-3 border-start border-secondary ps-3">
+                                <a class="nav-link text-warning text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Cart" asp-action="Index">Кошик 🛒</a>
+                            </li>
                         }
 
                         @if (User.HasClaim("IsAdmin", "true"))
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-warning text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="SiteSettings" asp-action="Index">Settings</a>
+                                <a class="nav-link text-warning text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="SiteSettings" asp-action="Index" data-turbo="false">Settings</a>
+                            </li>
+                           
+                            <li class="nav-item">
+                                <a class="nav-link text-danger text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Orders" asp-action="AdminMap" data-turbo="false">Мапа 🗺️</a>
                             </li>
                         }
                     </ul>
 
                     <div class="d-flex align-items-center">
+                        <li class="nav-item"><a class="nav-link text-warning text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Cart" asp-action="Index">Кошик 🛒</a></li>
                         @if (User.Identity != null && User.Identity.IsAuthenticated)
                         {
                             var layoutAvatarUrl = User.FindFirst("AvatarUrl")?.Value;
@@ -93,12 +105,19 @@
         </nav>
     </header>
 
-    <!-- ФІКС: Динамічні контакти з бази даних замість захардкоджених -->
+    @{
+        var yt = DbContext.SiteSettings.FirstOrDefault(s => s.Key == "Social_YouTube")?.Value ?? "#";
+        var ig = DbContext.SiteSettings.FirstOrDefault(s => s.Key == "Social_Instagram")?.Value ?? "#";
+        var ds = DbContext.SiteSettings.FirstOrDefault(s => s.Key == "Social_Discord")?.Value ?? "#";
+        var mail = DbContext.SiteSettings.FirstOrDefault(s => s.Key == "ContactEmail")?.Value ?? "info@site.com";
+    }
+
+    <!-- ФІКС: Динамічні контакти з бази даних працюють на всіх сторінках -->
     <div class="position-fixed end-0 top-50 translate-middle-y bg-black border border-secondary p-3 d-none d-md-flex flex-column gap-4 shadow-lg" style="z-index: 1040; border-right: none !important; border-top-left-radius: 8px; border-bottom-left-radius: 8px;">
-        <a href="@(ViewBag.Social_YouTube ?? "https://youtube.com")" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">YT</a>
-        <a href="@(ViewBag.Social_Instagram ?? "https://instagram.com")" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">IG</a>
-        <a href="@(ViewBag.Social_Discord ?? "https://discord.com")" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">DS</a>
-        <a href="mailto:@(ViewBag.ContactEmail ?? "info@bandvault.com")" class="text-white text-decoration-none text-center meta-text fs-5" title="@(ViewBag.ContactEmail ?? "info@bandvault.com")">✉</a>
+        <a href="@yt" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">YT</a>
+        <a href="@ig" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">IG</a>
+        <a href="@ds" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">DS</a>
+        <a href="mailto:@mail" class="text-white text-decoration-none text-center meta-text fs-5" title="@mail">✉</a>
     </div>
 
     <div class="container">

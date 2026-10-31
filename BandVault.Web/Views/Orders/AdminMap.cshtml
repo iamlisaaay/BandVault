@@ -1,0 +1,90 @@
+﻿@{
+    ViewData["Title"] = "Мапа Замовлень";
+}
+
+<div class="container-fluid px-5 my-4">
+    <h2 class="text-uppercase fw-bold border-bottom border-secondary pb-3 mb-4 text-danger">МАПА ЗАМОВЛЕНЬ (АДМІН)</h2>
+
+    <div class="row">
+        <!-- Фільтри ліворуч -->
+        <div class="col-md-3">
+            <div class="card bg-transparent border-secondary rounded-0 p-4 h-100">
+                <h5 class="text-secondary meta-text mb-4">ФІЛЬТРИ</h5>
+                <button class="btn btn-outline-light rounded-0 w-100 mb-2" onclick="filterMap('all')">УСІ ЗАМОВЛЕННЯ</button>
+                <button class="btn btn-outline-warning rounded-0 w-100 mb-2" onclick="filterMap('New')">НОВІ</button>
+                
+                <hr class="border-secondary my-4" />
+                <p class="text-white-50 small" style="line-height: 1.6;">
+                    Натискайте на маркери на мапі, щоб переглянути деталі замовлення (хто замовив, коли та сума до сплати).
+                </p>
+            </div>
+        </div>
+
+        <!-- Сама Мапа -->
+        <div class="col-md-9">
+            <!-- CSS-фільтр робить безкоштовну світлу мапу темною -->
+            <div id="adminMap" class="border border-secondary" style="height: 70vh; width: 100%; background: #111; filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);"></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Підключення бібліотеки мап Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        var orders = @Html.Raw(ViewBag.OrdersJson ?? "[]");
+        var map = L.map('adminMap').setView([50.4501, 30.5234], 5); // Дефолт центр - Київ/Європа
+
+        // Використовуємо надійний безкоштовний провайдер OpenStreetMap
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        var markers = [];
+
+        function renderMarkers(filterStatus) {
+            // Очищаємо старі маркери
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+
+            // Фільтруємо і малюємо нові
+            orders.forEach(order => {
+                if (filterStatus === 'all' || order.status === filterStatus) {
+                    var markerColor = order.status === 'New' ? '#ffc107' : '#0dcaf0';
+                    
+                    // Оскільки вся мапа інвертована через CSS, нам треба інвертувати кольори маркера назад
+                    var customIcon = L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="background-color:${markerColor}; width:16px; height:16px; border-radius:50%; border:2px solid #000; filter: invert(100%) hue-rotate(180deg);"></div>`,
+                        iconSize: [16, 16]
+                    });
+
+                    var marker = L.marker([order.lat, order.lng], { icon: customIcon }).addTo(map);
+                    
+                    // Спливаюче вікно при кліку (теж інвертуємо назад, щоб текст читався нормально)
+                    marker.bindPopup(`
+                        <div class="text-dark" style="filter: invert(100%) hue-rotate(180deg); background: #fff; padding: 5px;">
+                            <b>Замовлення #${order.id}</b><br>
+                            👤 Клієнт: ${order.user}<br>
+                            📅 Дата: ${order.date}<br>
+                            📍 Адреса: ${order.address}<br>
+                            💰 Сума: <strong style="color: #198754;">${order.total.toFixed(2)}$</strong>
+                        </div>
+                    `);
+                    markers.push(marker);
+                }
+            });
+        }
+
+        // Початкове малювання всіх маркерів
+        renderMarkers('all');
+
+        // Функція для фільтрації при натисканні кнопок
+        window.filterMap = function(status) {
+            renderMarkers(status);
+        };
+    </script>
+}
