@@ -1,12 +1,27 @@
 ﻿@model IEnumerable<BandVault.Web.Models.SiteSetting>
+@using System.Text.Json
 
 @{
     ViewData["Title"] = "Керування сайтом";
 }
 
 <div class="container my-5 text-white">
-    <h2 class="text-uppercase fw-bold mb-4" style="letter-spacing: 2px;">Налаштування Лендінгу</h2>
-    <p class="text-secondary meta-text mb-4">Тут ви можете змінити фонове відео, тексти та посилання на соцмережі.</p>
+    <div class="row mb-5 align-items-center">
+        <div class="col-md-7">
+            <h2 class="text-uppercase fw-bold mb-4" style="letter-spacing: 2px;">Налаштування Лендінгу</h2>
+            <p class="text-secondary meta-text mb-4">Тут ви можете змінити фонове відео, тексти та посилання на соцмережі.</p>
+        </div>
+        
+        <!-- ФІКС F1: Блок з графіком -->
+        <div class="col-md-5">
+            <div class="card bg-transparent border-secondary p-3 rounded-0 shadow-lg">
+                <h6 class="text-center text-uppercase meta-text text-secondary mb-3">Статистика підписок фан-клубу</h6>
+                <div style="height: 200px; display: flex; justify-content: center;">
+                    <canvas id="usersChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="table-responsive">
         <table class="table table-dark table-striped table-bordered border-secondary align-middle">
@@ -32,3 +47,37 @@
         </table>
     </div>
 </div>
+
+@section Scripts {
+    <!-- Підключення Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const ctx = document.getElementById('usersChart').getContext('2d');
+            
+            // Отримуємо дані з бекенду
+            const labels = @Html.Raw(JsonSerializer.Serialize(ViewBag.ChartLabels));
+            const dataValues = @Html.Raw(JsonSerializer.Serialize(ViewBag.ChartData));
+
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataValues,
+                        backgroundColor: ['#ffc107', '#198754', '#0dcaf0', '#dc3545', '#6c757d'],
+                        borderColor: '#1a1a1a',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#fff', font: { size: 10 } } }
+                    }
+                }
+            });
+        });
+    </script>
+}

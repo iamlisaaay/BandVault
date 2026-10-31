@@ -13,7 +13,7 @@ namespace BandVault.Web.Controllers.Api
     public class ReleasesApiController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly IDistributedCache _cache; // ФІКС B9: Додано кеш
+        private readonly IDistributedCache _cache;
 
         public ReleasesApiController(ApplicationDbContext context, IDistributedCache cache)
         {
@@ -28,14 +28,12 @@ namespace BandVault.Web.Controllers.Api
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
-            // ФІКС: Захист від limit=0 (ділення на нуль)
             int actualLimit = limit.HasValue && limit.Value > 0 ? limit.Value : (pageSize > 0 ? pageSize : 10);
             int actualSkip = skip ?? ((page > 0 ? page - 1 : 0) * actualLimit);
             int currentPage = (actualSkip / actualLimit) + 1;
 
             string cacheKey = $"releases_list_{actualSkip}_{actualLimit}";
 
-            // 1. СПРОБА ПРОЧИТАТИ З КЕШУ
             try
             {
                 var cachedData = await _cache.GetStringAsync(cacheKey);
@@ -72,7 +70,6 @@ namespace BandVault.Web.Controllers.Api
                 data = releases
             };
 
-            // 2. ЗАПИС У КЕШ
             try
             {
                 var cacheOptions = new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60) };
@@ -108,6 +105,7 @@ namespace BandVault.Web.Controllers.Api
             release.ReleaseDate = DateTime.SpecifyKind(release.ReleaseDate, DateTimeKind.Utc);
             _context.Releases.Add(release);
             await _context.SaveChangesAsync();
+            await ClearCacheAsync(); // ФІКС: Очищення кешу
             return CreatedAtAction(nameof(GetRelease), new { id = release.Id }, release);
         }
 
@@ -120,6 +118,7 @@ namespace BandVault.Web.Controllers.Api
             try
             {
                 await _context.SaveChangesAsync();
+                await ClearCacheAsync(); // ФІКС: Очищення кешу
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -136,12 +135,24 @@ namespace BandVault.Web.Controllers.Api
             if (release == null) return NotFound();
             _context.Releases.Remove(release);
             await _context.SaveChangesAsync();
+            await ClearCacheAsync(); // ФІКС: Очищення кешу
             return NoContent();
         }
 
         private bool ReleaseExists(int id)
         {
             return _context.Releases.Any(e => e.Id == id);
+        }
+
+        // Хелпер для очищення (в ідеалі тут треба чистити по префіксу)
+        private async Task ClearCacheAsync()
+        {
+            try
+            {
+                await _cache.RemoveAsync("releases_list_0_10");
+                await _cache.RemoveAsync("releases_list_0_5");
+            }
+            catch { }
         }
     }
 }

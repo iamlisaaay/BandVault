@@ -19,6 +19,17 @@ namespace BandVault.Web.Controllers
         public async Task<IActionResult> Index()
         {
             if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
+            // ФІКС F1: Збираємо статистику підписників для графіка Chart.js
+            var usersByTier = await _context.Users
+                .Include(u => u.SubscriptionTier)
+                .GroupBy(u => u.SubscriptionTier.Name)
+                .Select(g => new { TierName = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            ViewBag.ChartLabels = usersByTier.Select(u => u.TierName).ToArray();
+            ViewBag.ChartData = usersByTier.Select(u => u.Count).ToArray();
+
             return View(await _context.SiteSettings.OrderBy(s => s.Key).ToListAsync());
         }
 

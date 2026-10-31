@@ -65,13 +65,16 @@ namespace BandVault.Web.Controllers
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
+          
+            merchItem.Category = await _context.MerchCategories.FindAsync(merchItem.CategoryId);
             ViewBag.Categories = new SelectList(_context.MerchCategories, "Id", "Name", merchItem.CategoryId);
             return View(merchItem);
         }
 
 
         // EDIT
-    
+
+
         [Authorize]
         public async Task<IActionResult> Edit(int? id)
         {
@@ -79,7 +82,11 @@ namespace BandVault.Web.Controllers
 
             if (id == null) return NotFound();
 
-            var merchItem = await _context.MerchItems.FindAsync(id);
+            // ФІКС: Підвантажуємо поточну категорію для Select2
+            var merchItem = await _context.MerchItems
+                .Include(m => m.Category)
+                .FirstOrDefaultAsync(m => m.Id == id);
+
             if (merchItem == null) return NotFound();
 
             ViewBag.Categories = new SelectList(_context.MerchCategories, "Id", "Name", merchItem.CategoryId);

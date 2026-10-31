@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
 using BandVault.Web.Models;
 using System.IO;
+using System.Net.Http;
+using System.Web;
 
 namespace BandVault.Web.Controllers
 {
@@ -13,16 +15,15 @@ namespace BandVault.Web.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
+        private readonly IConfiguration _config; // Додано для доступу до токена Telegram
 
-        public PostsController(ApplicationDbContext context, IWebHostEnvironment env)
+        public PostsController(ApplicationDbContext context, IWebHostEnvironment env, IConfiguration config)
         {
             _context = context;
             _env = env;
+            _config = config;
         }
 
-        // ============================================
-        // ЗАВАНТАЖЕННЯ МЕДІА
-        // ============================================
         [HttpPost]
         public async Task<IActionResult> UploadMedia(IFormFile file)
         {
@@ -51,7 +52,6 @@ namespace BandVault.Web.Controllers
             return Json(new { url = fileUrl, type = type, name = file.FileName });
         }
 
-        // GET: Posts
         public async Task<IActionResult> Index()
         {
             var currentUserEmail = User.Identity?.Name;
@@ -71,7 +71,6 @@ namespace BandVault.Web.Controllers
             return View(posts);
         }
 
-        // GET: Posts/Details/5
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null) return NotFound();
@@ -98,7 +97,6 @@ namespace BandVault.Web.Controllers
             return View(post);
         }
 
-        // GET: Posts/Create
         public async Task<IActionResult> Create()
         {
             var currentUserEmail = User.Identity?.Name;
@@ -119,7 +117,6 @@ namespace BandVault.Web.Controllers
             return View();
         }
 
-        // POST: Posts/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(Post post)
@@ -134,13 +131,44 @@ namespace BandVault.Web.Controllers
 
                 _context.Posts.Add(post);
                 await _context.SaveChangesAsync();
+
+                // ФІКС B2: Інтеграція з Telegram API
+                if (post.IsPublished)
+                {
+                    await SendTelegramNotification(post);
+                }
+
                 return RedirectToAction(nameof(Index));
             }
 
             return Forbid();
         }
 
-        // GET: Posts/Edit/5
+        // МЕТОД ДЛЯ ВІДПРАВКИ ПОВІДОМЛЕННЯ В TELEGRAM
+        private async Task SendTelegramNotification(Post post)
+        {
+            try
+            {
+                string token = _config["TelegramBot:Token"] ?? "";
+                string chatId = _config["TelegramBot:ChatId"] ?? "";
+
+                if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(chatId) || token.Contains("Dummy"))
+                    return;
+
+                string postUrl = Url.Action("Details", "Posts", new { id = post.Id }, Request.Scheme) ?? "";
+                string message = $"🔥 *Новий пост у фан-клубі!*\n\n*{post.Title}*\n\n👉 [Читати повністю]({postUrl})";
+
+                using var client = new HttpClient();
+                string requestUrl = $"https://api.telegram.org/bot{token}/sendMessage?chat_id={chatId}&text={HttpUtility.UrlEncode(message)}&parse_mode=Markdown";
+
+                await client.GetAsync(requestUrl);
+            }
+            catch
+            {
+                // Ігноруємо помилки мережі, щоб не заблокувати створення посту
+            }
+        }
+
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null) return NotFound();
@@ -168,7 +196,6 @@ namespace BandVault.Web.Controllers
             return View(post);
         }
 
-        // POST: Posts/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, Post post)
@@ -204,7 +231,6 @@ namespace BandVault.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // GET: Posts/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null) return NotFound();
@@ -223,7 +249,6 @@ namespace BandVault.Web.Controllers
             return View(post);
         }
 
-        // POST: Posts/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
