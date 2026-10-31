@@ -484,4 +484,5 @@ $RECYCLE.BIN/
 *.swp
 # Ігноруємо всю папку audio та її вміст
 **/wwwroot/audio/*
-
+# Захист від потрапляння тестових медіа у Git (щоб не перевищити ліміт GitHub)
+**/wwwroot/uploads/*

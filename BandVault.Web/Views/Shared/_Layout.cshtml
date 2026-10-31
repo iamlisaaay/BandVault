@@ -4,9 +4,24 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - BandVault.Web</title>
+    
+    <!-- ФІКС C7: OpenGraph Метатеги для красивого прев'ю в соцмережах -->
+    <meta property="og:title" content="@(ViewData["Title"] ?? "BandVault Fanclub")" />
+    <meta property="og:description" content="Офіційний фан-клуб та магазин ексклюзивного мерчу." />
+    <meta property="og:image" content="/images/avatars/default-og.jpg" />
+    <meta property="og:type" content="website" />
+
     <script type="importmap"></script>
 
-    <!-- Підключення Turbo -->
+    <!-- ФІКС C9: Google Analytics (Заглушка для аналітики) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BANDVAULT"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-BANDVAULT');
+    </script>
+
     <script type="module" src="https://unpkg.com/@@hotwired/turbo@8.0.4/dist/turbo.es2017-esm.js"></script>
 
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
@@ -26,8 +41,6 @@
 
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav me-auto">
-
-                        <!-- 1. ЦІ ВКЛАДКИ БАЧАТЬ УСІ (Навіть гості) -->
                         <li class="nav-item">
                             <a class="nav-link text-light" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
                         </li>
@@ -35,7 +48,6 @@
                             <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Merch" asp-action="Index">Мерч</a>
                         </li>
 
-                        <!-- 2. ЦІ ВКЛАДКИ БАЧАТЬ ЛИШЕ ЗАРЕЄСТРОВАНІ -->
                         @if (User.Identity != null && User.Identity.IsAuthenticated)
                         {
                             <li class="nav-item">
@@ -46,7 +58,6 @@
                             </li>
                         }
 
-                        <!-- 3. ЦІ ВКЛАДКИ БАЧАТЬ ЛИШЕ АДМІНИ -->
                         @if (User.HasClaim("IsAdmin", "true"))
                         {
                             <li class="nav-item">
@@ -55,7 +66,6 @@
                         }
                     </ul>
 
-                    <!-- ПРАВА ЧАСТИНА: АВАТАРКА АБО КНОПКА "УВІЙТИ" -->
                     <div class="d-flex align-items-center">
                         @if (User.Identity != null && User.Identity.IsAuthenticated)
                         {
@@ -83,12 +93,12 @@
         </nav>
     </header>
 
-    <!-- Закріплені контакти постійно на екрані (C6) -->
-    <div class="position-fixed end-0 top-50 translate-middle-y bg-black border border-secondary p-2 d-none d-md-flex flex-column gap-3 shadow-lg" style="z-index: 1040; border-right: none !important;">
-        <a href="https://youtube.com/@@madmansesprit" target="_blank" class="text-secondary text-decoration-none text-center meta-text" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">YT</a>
-        <a href="https://instagram.com/madmansesprit_official" target="_blank" class="text-secondary text-decoration-none text-center meta-text" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">IG</a>
-        <a href="https://discord.gg/madmansesprit" target="_blank" class="text-secondary text-decoration-none text-center meta-text" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">DS</a>
-        <a href="mailto:booking@madmansesprit.com" class="text-white text-decoration-none text-center meta-text" title="booking@madmansesprit.com">✉</a>
+    <!-- ФІКС: Динамічні контакти з бази даних замість захардкоджених -->
+    <div class="position-fixed end-0 top-50 translate-middle-y bg-black border border-secondary p-3 d-none d-md-flex flex-column gap-4 shadow-lg" style="z-index: 1040; border-right: none !important; border-top-left-radius: 8px; border-bottom-left-radius: 8px;">
+        <a href="@(ViewBag.Social_YouTube ?? "https://youtube.com")" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">YT</a>
+        <a href="@(ViewBag.Social_Instagram ?? "https://instagram.com")" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">IG</a>
+        <a href="@(ViewBag.Social_Discord ?? "https://discord.com")" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">DS</a>
+        <a href="mailto:@(ViewBag.ContactEmail ?? "info@bandvault.com")" class="text-white text-decoration-none text-center meta-text fs-5" title="@(ViewBag.ContactEmail ?? "info@bandvault.com")">✉</a>
     </div>
 
     <div class="container">
@@ -106,22 +116,15 @@
     <!-- аудіо-плеєр -->
     <div id="global-player" data-turbo-permanent class="global-audio-footer bg-black border-top border-secondary shadow-lg py-2">
         <div class="container d-flex align-items-center">
-            <!-- Обкладинка треку -->
             <img id="player-cover" src="https://via.placeholder.com/50/000000/ffffff?text=BV" alt="Cover" class="rounded me-3 border border-secondary" style="width: 50px; height: 50px; object-fit: cover;">
-
-            <!-- Інформація про трек -->
             <div class="player-info text-white me-3 d-none d-md-block" style="min-width: 180px; max-width: 250px;">
                 <h6 class="mb-0 text-light" style="font-size: 0.75rem; letter-spacing: 1px;">NOW PLAYING</h6>
                 <div id="player-track-title" class="fw-bold text-truncate" style="font-size: 0.95rem;">Оберіть трек</div>
                 <a id="player-track-artist" href="#" class="text-secondary text-truncate d-block text-decoration-none release-link" style="font-size: 0.875em; transition: color 0.2s;">BandVault</a>
             </div>
-
-            <!-- Візуалізатор -->
             <div class="flex-grow-1 mx-4 d-none d-lg-block">
                 <canvas id="visualizer" width="600" height="40" class="w-100 rounded"></canvas>
             </div>
-
-            <!-- Контроли -->
             <div class="player-controls ms-auto">
                 <audio id="main-audio" controls>
                     <source id="main-audio-source" src="" type="audio/mpeg">
@@ -130,7 +133,6 @@
         </div>
     </div>
 
-    <!-- Скрипти -->
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>

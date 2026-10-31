@@ -7,8 +7,13 @@
     string GetYouTubeId(string url)
     {
         if (string.IsNullOrEmpty(url)) return null;
-        if (url.Contains("v=")) return url.Split("v=")[1].Substring(0, 11);
-        if (url.Contains("youtu.be/")) return url.Split("youtu.be/")[1].Substring(0, 11);
+        try 
+        {
+            if (url.Contains("v=")) return url.Split("v=")[1].Substring(0, 11);
+            if (url.Contains("youtu.be/")) return url.Split("youtu.be/")[1].Substring(0, 11);
+        } 
+        catch { return null; } // ФІКС: Захист від падіння на коротких чи неправильних посиланнях
+        
         return null;
     }
     
@@ -19,56 +24,35 @@
 
 <style>
     html { scroll-behavior: smooth; }
+
     .group-hero {
         position: relative;
-        height: 100vh;
-        width: 100%;
+        width: 100vw;
+        left: 50%;
+        right: 50%;
+        margin-left: -50vw;
+        margin-right: -50vw;
+        height: 56.25vw; 
+        max-height: 100vh; 
+        background-color: #050505;
         overflow: hidden;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        background-color: #050505;
     }
-    .youtube-bg-container {
-        position: absolute;
-        top: 0; left: 0;
-        width: 100%; height: 100%;
-        overflow: hidden;
-        z-index: 0;
-    }
-    .youtube-bg-container::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: 1;
-        background: rgba(10, 10, 10, 0.65);
-    }
-    .youtube-bg-iframe {
-        position: absolute;
-        top: 50%; left: 50%;
-        width: 100vw; height: 56.25vw;
-        min-height: 100vh; min-width: 177.77vh;
-        transform: translate(-50%, -50%);
-        pointer-events: none;
-    }
-    .hero-content {
-        position: relative;
-        z-index: 2;
-        text-align: center;
-        width: 100%;
-    }
-    .hero-title {
-        font-family: 'Courier New', Courier, monospace;
-        letter-spacing: 5px;
-        margin-bottom: 2rem;
-        font-size: 1.5rem;
-    }
-    .hero-subtitle {
-        letter-spacing: 2px;
-        color: #ccc;
-        margin-bottom: 3rem;
-    }
+
+    .youtube-bg-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+    .youtube-bg-container::after { content: ""; position: absolute; inset: 0; z-index: 1; background: rgba(10, 10, 10, 0.65); }
+    .youtube-bg-iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+    .hero-content { position: relative; z-index: 2; text-align: center; width: 100%; }
+    .hero-title { font-family: 'Courier New', Courier, monospace; letter-spacing: 5px; margin-bottom: 2rem; font-size: 1.5rem; }
+    .hero-subtitle { letter-spacing: 2px; color: #ccc; margin-bottom: 3rem; }
+
+    .home-preview-wrapper { max-height: 100px; overflow: hidden; position: relative; margin-bottom: 10px; }
+    .home-preview-fade { position: absolute; bottom: 0; left: 0; width: 100%; height: 50px; background: linear-gradient(to bottom, rgba(33, 37, 41, 0) 0%, rgba(33, 37, 41, 1) 100%); pointer-events: none; }
+    .home-preview-wrapper img, .home-preview-wrapper video { max-height: 40px !important; width: auto; border-radius: 4px; display: block; }
+    .home-preview-wrapper audio { height: 25px; width: 180px; }
 </style>
 
 <div class="group-hero mb-5">
@@ -109,9 +93,14 @@
                     <p class="text-white meta-text mb-0" style="letter-spacing: 1px;">ТИ З НАМИ ВЖЕ <span class="text-success fw-bold">@ViewBag.DaysJoined</span> ДНІВ</p>
                 </div>
                 <br>
-                <a href="#news" class="btn btn-light rounded-0 text-uppercase px-5 py-2 fw-bold" style="letter-spacing: 2px;">
+                <a href="#news" class="btn btn-light rounded-0 text-uppercase px-4 py-2 fw-bold me-2" style="letter-spacing: 2px;">
                     Читати новини
                 </a>
+                
+                <!-- ФІКС B6: Додано кнопку для зміни тарифу для вже зареєстрованих юзерів -->
+                <button type="button" class="btn btn-outline-warning rounded-0 text-uppercase px-4 py-2 fw-bold" style="letter-spacing: 2px;" data-bs-toggle="modal" data-bs-target="#tierModal">
+                    Змінити рівень
+                </button>
             }
         </div>
     </div>
@@ -150,10 +139,12 @@
                                     @post.CreatedAt.ToString("dd.MM.yyyy") | TIER @post.RequiredTierLevel
                                 </h6>
                                 <h4 class="card-title fw-bold text-uppercase mb-3">@post.Title</h4>
-                                <!-- Рендеринг HTML тексту замість сирого Markdown -->
-                                <div class="card-text text-light opacity-75" style="overflow-wrap: break-word;">
+                                
+                                <div class="home-preview-wrapper text-light opacity-75">
                                     @Html.Raw(Markdown.ToHtml(post.ContentMarkdown ?? "", new MarkdownPipelineBuilder().UseAdvancedExtensions().Build()))
+                                    <div class="home-preview-fade"></div>
                                 </div>
+                                <a asp-controller="Posts" asp-action="Details" asp-route-id="@post.Id" class="btn btn-sm btn-outline-light rounded-0">Читати далі</a>
                             </div>
                         </div>
                     </div>

@@ -19,6 +19,11 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_started
+    # ФІКС: Додано збереження завантажених медіафайлів
+    volumes:
+      - web_images:/app/wwwroot/images
+      - web_audio:/app/wwwroot/audio
+      - web_uploads:/app/wwwroot/uploads
 
   db:
     image: postgres:15-alpine
@@ -55,3 +60,6 @@ services:
 
 volumes:
   pgdata:
+  web_images:
+  web_audio:
+  web_uploads:

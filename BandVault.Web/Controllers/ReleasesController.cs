@@ -51,7 +51,8 @@ namespace BandVault.Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(Release release, IFormFile coverImage)
+        // ФІКС: Зробили IFormFile? опціональним, щоб не падала валідація, якщо фото не завантажили
+        public async Task<IActionResult> Create(Release release, IFormFile? coverImage)
         {
             if (!User.HasClaim("IsAdmin", "true")) return Forbid();
 

@@ -6,7 +6,6 @@ using BandVault.Web.Models;
 
 namespace BandVault.Web.Controllers
 {
-   
     [Authorize]
     public class SiteSettingsController : Controller
     {
@@ -19,13 +18,14 @@ namespace BandVault.Web.Controllers
 
         public async Task<IActionResult> Index()
         {
-            
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
             return View(await _context.SiteSettings.OrderBy(s => s.Key).ToListAsync());
         }
 
-       
         public async Task<IActionResult> Edit(int? id)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             if (id == null) return NotFound();
 
             var siteSetting = await _context.SiteSettings.FindAsync(id);
@@ -34,11 +34,12 @@ namespace BandVault.Web.Controllers
             return View(siteSetting);
         }
 
-       
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("Id,Key,Value")] SiteSetting siteSetting)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             if (id != siteSetting.Id) return NotFound();
 
             if (ModelState.IsValid)
@@ -53,7 +54,7 @@ namespace BandVault.Web.Controllers
                     if (!SiteSettingExists(siteSetting.Id)) return NotFound();
                     else throw;
                 }
-                
+
                 return RedirectToAction(nameof(Index));
             }
             return View(siteSetting);

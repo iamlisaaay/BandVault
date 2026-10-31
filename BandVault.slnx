@@ -2,5 +2,6 @@
   <Folder Name="/Элементы решения/">
     <File Path="docker-compose.yml" />
   </Folder>
+  <Project Path="BandVault.Tests/BandVault.Tests.csproj" />
   <Project Path="BandVault.Web/BandVault.Web.csproj" />
 </Solution>

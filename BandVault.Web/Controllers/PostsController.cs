@@ -26,6 +26,8 @@ namespace BandVault.Web.Controllers
         [HttpPost]
         public async Task<IActionResult> UploadMedia(IFormFile file)
         {
+            if (!User.HasClaim("IsAdmin", "true")) return Forbid();
+
             if (file == null || file.Length == 0) return BadRequest("Файл порожній.");
 
             string ext = Path.GetExtension(file.FileName).ToLower();

@@ -22,11 +22,11 @@
 
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-outline-light btn-sm rounded-0" onclick="addTextBlock()">+ Текст</button>
-                <button type="button" class="btn btn-outline-light btn-sm rounded-0" onclick="document.getElementById('mediaUpload').click()">+ Медіа (Фото/Відео/Аудіо)</button>
-                <input type="file" id="mediaUpload" style="display: none;" accept="image/*, audio/*, video/*" onchange="uploadMedia(this)" />
+                <button type="button" class="btn btn-outline-light btn-sm rounded-0" onclick="document.getElementById('mediaUpload').click()">+ Медіа (Відео/Аудіо)</button>
+                <!-- Відео та Аудіо ми додаємо як окремі блоки -->
+                <input type="file" id="mediaUpload" style="display: none;" accept="audio/*, video/*" onchange="uploadMedia(this)" />
             </div>
 
-            <!-- Приховане поле, куди перед відправкою збереться фінальний Markdown -->
             <input type="hidden" asp-for="ContentMarkdown" id="ContentMarkdown" />
         </div>
 
@@ -42,8 +42,11 @@
 </div>
 
 @section Scripts {
-    <!-- SortableJS для перетягування блоків -->
+    <!-- Підключаємо і SortableJS, і EasyMDE -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+    <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+
     <style>
         .block-item {
             background-color: #1a1a1a;
@@ -51,14 +54,12 @@
             margin-bottom: 10px;
             padding: 10px;
             display: flex;
-            align-items: flex-start;
+            align-items: stretch;
             gap: 10px;
             transition: border-color 0.2s;
         }
 
-            .block-item:focus-within {
-                border-color: #6c757d;
-            }
+        .block-item:focus-within { border-color: #6c757d; }
 
         .drag-handle {
             cursor: grab;
@@ -66,40 +67,36 @@
             padding: 5px;
             font-size: 1.2rem;
             user-select: none;
+            display: flex;
+            align-items: center;
         }
+        .drag-handle:active { cursor: grabbing; }
 
-            .drag-handle:active {
-                cursor: grabbing;
-            }
-
-        .block-content {
-            flex-grow: 1;
-        }
-
-        .block-textarea {
-            width: 100%;
-            background: transparent;
-            color: white;
-            border: none;
-            resize: vertical;
-            outline: none;
-            min-height: 60px;
-        }
+        .block-content { flex-grow: 1; min-width: 0; }
+        
+        /* Стилі для міні-редакторів */
+        .editor-toolbar { border-color: #444; background-color: #1a1a1a; padding: 0 5px; opacity: 0.5; transition: opacity 0.3s; }
+        .block-item:focus-within .editor-toolbar { opacity: 1; border-color: #6c757d; }
+        .editor-toolbar button { color: #fff !important; }
+        .editor-toolbar button:hover, .editor-toolbar button.active { background-color: #333; }
+        .CodeMirror { background-color: #121212; color: #fff; border-color: #444; min-height: 80px; height: auto; }
+        .block-item:focus-within .CodeMirror { border-color: #6c757d; }
+        .editor-preview { background-color: #121212; }
+        .CodeMirror-cursor { border-left: 2px solid #fff !important; }
     </style>
 
     <script>
         const STORAGE_KEY = 'bandvault_post_draft_blocks';
         const editorContainer = document.getElementById('editor-blocks');
+        const editorsMap = {}; // Зберігатимемо екземпляри EasyMDE за ID блоку
 
-        // Ініціалізація Sortable
         new Sortable(editorContainer, {
             animation: 150,
             handle: '.drag-handle',
             ghostClass: 'bg-dark',
-            onEnd: saveDraft // Зберігати чернетку після перетягування
+            onEnd: saveDraft 
         });
 
-        // Завантаження чернетки або створення першого порожнього блоку
         document.addEventListener("DOMContentLoaded", () => {
             const savedDraft = localStorage.getItem(STORAGE_KEY);
             if (savedDraft) {
@@ -115,44 +112,73 @@
         });
 
         function addTextBlock(content = "") {
-            const id = 'block_' + Date.now();
+            const blockId = 'block_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+            const textareaId = 'ta_' + blockId;
+            
             const html = `
-                <div class="block-item" id="${id}" data-type="text">
+                <div class="block-item" id="${blockId}" data-type="text">
                     <div class="drag-handle">⠿</div>
                     <div class="block-content">
-                        <textarea class="block-textarea" placeholder="Напишіть текст або Markdown..." oninput="saveDraft()">${content}</textarea>
+                        <textarea id="${textareaId}" class="block-textarea">${content}</textarea>
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="this.parentElement.remove(); saveDraft();">✕</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="removeBlock('${blockId}')">✕</button>
+                </div>
+            `;
+            editorContainer.insertAdjacentHTML('beforeend', html);
+            
+            // Ініціалізуємо EasyMDE саме для цього блоку
+            const mde = new EasyMDE({
+                element: document.getElementById(textareaId),
+                spellChecker: false,
+                status: false, // ховаємо статус-бар для компактності
+                toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "image", "preview"],
+                uploadImage: true,
+                imageAccept: "image/*", // Текстовий блок приймає тільки картинки через Drag-n-Drop
+                imageUploadFunction: function(file, onSuccess, onError) {
+                    if (file.size > 20 * 1024 * 1024) { onError("До 20 МБ."); return; }
+                    var formData = new FormData(); formData.append("file", file);
+                    fetch('/Posts/UploadMedia', { method: 'POST', body: formData })
+                        .then(res => res.json())
+                        .then(data => onSuccess(data.url))
+                        .catch(err => onError(err.toString()));
+                }
+            });
+            
+            // Зберігаємо чернетку при кожній зміні тексту
+            mde.codemirror.on("change", saveDraft);
+            editorsMap[blockId] = mde;
+            saveDraft();
+        }
+
+        function addMediaBlock(markdownCode, previewHtml) {
+            const blockId = 'block_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+            const html = `
+                <div class="block-item" id="${blockId}" data-type="media">
+                    <div class="drag-handle">⠿</div>
+                    <div class="block-content">
+                        <input type="hidden" class="media-markdown" value="${markdownCode.replace(/"/g, '&quot;')}" />
+                        <div class="media-preview">${previewHtml}</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="removeBlock('${blockId}')">✕</button>
                 </div>
             `;
             editorContainer.insertAdjacentHTML('beforeend', html);
             saveDraft();
         }
 
-        function addMediaBlock(markdownCode, previewHtml) {
-            const id = 'block_' + Date.now();
-            const html = `
-                <div class="block-item" id="${id}" data-type="media">
-                    <div class="drag-handle">⠿</div>
-                    <div class="block-content">
-                        <input type="hidden" class="media-markdown" value="${markdownCode.replace(/"/g, '&quot;')}" />
-                        <div class="media-preview">${previewHtml}</div>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="this.parentElement.remove(); saveDraft();">✕</button>
-                </div>
-            `;
-            editorContainer.insertAdjacentHTML('beforeend', html);
+        function removeBlock(blockId) {
+            if (editorsMap[blockId]) {
+                editorsMap[blockId].toTextArea();
+                delete editorsMap[blockId];
+            }
+            document.getElementById(blockId).remove();
             saveDraft();
         }
 
         function uploadMedia(input) {
             if (!input.files || input.files.length === 0) return;
             const file = input.files[0];
-
-            if (file.size > 20 * 1024 * 1024) {
-                alert("Файл занадто великий! Дозволено до 20 МБ.");
-                return;
-            }
+            if (file.size > 20 * 1024 * 1024) { alert("Файл занадто великий! Дозволено до 20 МБ."); return; }
 
             const formData = new FormData();
             formData.append("file", file);
@@ -163,19 +189,15 @@
                     let markdown = "";
                     let preview = "";
 
-                    if (data.type === 'image') {
-                        markdown = `![${data.name}](${data.url})`;
-                        preview = `<img src="${data.url}" style="max-height: 200px; max-width: 100%; border-radius: 8px;">`;
-                    } else if (data.type === 'video') {
+                    if (data.type === 'video') {
                         markdown = `\n<video controls style="width:100%; max-height: 400px; border-radius:8px; margin: 10px 0;"><source src="${data.url}"></video>\n`;
                         preview = markdown;
-                    } else {
+                    } else if (data.type === 'audio') {
                         markdown = `\n<audio controls class="w-100" style="margin: 10px 0;"><source src="${data.url}"></audio>\n`;
                         preview = markdown;
                     }
-
-                    addMediaBlock(markdown, preview);
-                    input.value = ""; // Очищаємо інпут
+                    if(markdown !== "") addMediaBlock(markdown, preview);
+                    input.value = ""; 
                 })
                 .catch(err => alert("Помилка завантаження: " + err));
         }
@@ -183,11 +205,12 @@
         function saveDraft() {
             const blocks = [];
             Array.from(editorContainer.children).forEach(block => {
+                const blockId = block.id;
                 if (block.dataset.type === 'text') {
-                    blocks.push({ type: 'text', content: block.querySelector('textarea').value });
+                    blocks.push({ type: 'text', content: editorsMap[blockId].value() });
                 } else if (block.dataset.type === 'media') {
-                    blocks.push({
-                        type: 'media',
+                    blocks.push({ 
+                        type: 'media', 
                         content: block.querySelector('.media-markdown').value,
                         preview: block.querySelector('.media-preview').innerHTML
                     });
@@ -197,18 +220,21 @@
         }
 
         function saveAndSubmit() {
+            const form = document.getElementById('postForm');
+            if (!form.reportValidity()) return;
+
             let finalMarkdown = "";
             Array.from(editorContainer.children).forEach(block => {
                 if (block.dataset.type === 'text') {
-                    finalMarkdown += block.querySelector('textarea').value + "\n\n";
+                    finalMarkdown += editorsMap[block.id].value() + "\n\n";
                 } else if (block.dataset.type === 'media') {
                     finalMarkdown += block.querySelector('.media-markdown').value + "\n\n";
                 }
             });
 
             document.getElementById('ContentMarkdown').value = finalMarkdown.trim();
-            localStorage.removeItem(STORAGE_KEY); // Очищаємо після відправки
-            document.getElementById('postForm').submit();
+            localStorage.removeItem(STORAGE_KEY); 
+            form.submit();
         }
     </script>
 }

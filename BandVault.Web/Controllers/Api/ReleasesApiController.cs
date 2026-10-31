@@ -2,6 +2,9 @@
 using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
 using BandVault.Web.Models;
+using Microsoft.Extensions.Caching.Distributed;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace BandVault.Web.Controllers.Api
 {
@@ -10,13 +13,14 @@ namespace BandVault.Web.Controllers.Api
     public class ReleasesApiController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IDistributedCache _cache; // ФІКС B9: Додано кеш
 
-        public ReleasesApiController(ApplicationDbContext context)
+        public ReleasesApiController(ApplicationDbContext context, IDistributedCache cache)
         {
             _context = context;
+            _cache = cache;
         }
 
-        // GET: api/releases
         [HttpGet]
         public async Task<IActionResult> GetReleases(
             [FromQuery] int? skip = null,
@@ -24,9 +28,23 @@ namespace BandVault.Web.Controllers.Api
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
-            int actualLimit = limit ?? (pageSize < 1 ? 10 : pageSize);
-            int actualSkip = skip ?? ((page < 1 ? 0 : page - 1) * actualLimit);
+            // ФІКС: Захист від limit=0 (ділення на нуль)
+            int actualLimit = limit.HasValue && limit.Value > 0 ? limit.Value : (pageSize > 0 ? pageSize : 10);
+            int actualSkip = skip ?? ((page > 0 ? page - 1 : 0) * actualLimit);
             int currentPage = (actualSkip / actualLimit) + 1;
+
+            string cacheKey = $"releases_list_{actualSkip}_{actualLimit}";
+
+            // 1. СПРОБА ПРОЧИТАТИ З КЕШУ
+            try
+            {
+                var cachedData = await _cache.GetStringAsync(cacheKey);
+                if (!string.IsNullOrEmpty(cachedData))
+                {
+                    return Content(cachedData, "application/json");
+                }
+            }
+            catch { }
 
             var totalItems = await _context.Releases.CountAsync();
             var totalPages = (int)Math.Ceiling(totalItems / (double)actualLimit);
@@ -42,20 +60,35 @@ namespace BandVault.Web.Controllers.Api
                 ? Url.Action(nameof(GetReleases), new { skip = actualSkip + actualLimit, limit = actualLimit })
                 : null;
 
-            return Ok(new
+            var responseData = new
             {
-                TotalItems = totalItems,
-                TotalPages = totalPages,
-                CurrentPage = currentPage,
-                PageSize = actualLimit,
-                Skip = actualSkip,
-                Limit = actualLimit,
-                NextLink = nextLink,
-                Data = releases
-            });
+                totalItems = totalItems,
+                totalPages = totalPages,
+                currentPage = currentPage,
+                pageSize = actualLimit,
+                skip = actualSkip,
+                limit = actualLimit,
+                nextLink = nextLink,
+                data = releases
+            };
+
+            // 2. ЗАПИС У КЕШ
+            try
+            {
+                var cacheOptions = new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60) };
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    ReferenceHandler = ReferenceHandler.IgnoreCycles
+                };
+                var serializedData = JsonSerializer.Serialize(responseData, jsonOptions);
+                await _cache.SetStringAsync(cacheKey, serializedData, cacheOptions);
+            }
+            catch { }
+
+            return Ok(responseData);
         }
 
-        // GET: api/releases/5
         [HttpGet("{id}")]
         public async Task<IActionResult> GetRelease(int id)
         {
@@ -65,33 +98,25 @@ namespace BandVault.Web.Controllers.Api
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (release == null) return NotFound();
-
             return Ok(release);
         }
 
-        // POST: api/releases
         [HttpPost]
         public async Task<IActionResult> CreateRelease([FromBody] Release release)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-
             release.ReleaseDate = DateTime.SpecifyKind(release.ReleaseDate, DateTimeKind.Utc);
-
             _context.Releases.Add(release);
             await _context.SaveChangesAsync();
-
             return CreatedAtAction(nameof(GetRelease), new { id = release.Id }, release);
         }
 
-        // PUT: api/releases/5
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateRelease(int id, [FromBody] Release release)
         {
             if (id != release.Id) return BadRequest("ID mismatch");
-
             release.ReleaseDate = DateTime.SpecifyKind(release.ReleaseDate, DateTimeKind.Utc);
             _context.Entry(release).State = EntityState.Modified;
-
             try
             {
                 await _context.SaveChangesAsync();
@@ -101,20 +126,16 @@ namespace BandVault.Web.Controllers.Api
                 if (!ReleaseExists(id)) return NotFound();
                 else throw;
             }
-
             return NoContent();
         }
 
-        // DELETE: api/releases/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteRelease(int id)
         {
             var release = await _context.Releases.FindAsync(id);
             if (release == null) return NotFound();
-
             _context.Releases.Remove(release);
             await _context.SaveChangesAsync();
-
             return NoContent();
         }
 

@@ -1,14 +1,68 @@
 ﻿@model IEnumerable<BandVault.Web.Models.Post>
+@using Markdig
 
 <div class="container my-5">
     <div class="d-flex justify-content-between align-items-end mb-4 border-bottom border-secondary pb-2">
         <h3 class="section-title border-0 mb-0 pb-0">Стрічка фан-клубу</h3>
         @if (ViewBag.IsAdmin)
         {
-            <!-- ФІКС ТУРБО: Додано data-turbo="false" -->
             <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold" data-turbo="false">+ Написати пост</a>
         }
     </div>
+
+    <!-- Стилі для компактного відображення медіа в стрічці -->
+    <style>
+        .post-preview-content {
+            max-height: 320px; /* Обмежуємо загальну висоту прев'ю, щоб стрічка не була безкінечною */
+            overflow: hidden;
+            position: relative;
+            font-size: 0.95rem;
+        }
+
+        /* Ефект плавного згасання внизу довгих постів */
+        .post-preview-fade {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            background: linear-gradient(to bottom, transparent, #121212 90%);
+            pointer-events: none;
+        }
+
+        /* Адаптивні компактні картинки */
+        .post-preview-content img {
+            max-height: 120px !important;
+            width: auto !important;
+            max-width: 100% !important;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #333;
+            margin: 5px 5px 5px 0;
+            display: inline-block;
+        }
+
+        /* Компактні аудіоплеєри */
+        .post-preview-content audio {
+            height: 36px;
+            max-width: 100%;
+            width: 320px;
+            display: block;
+            margin: 8px 0;
+            border-radius: 4px;
+            background-color: #1a1a1a;
+        }
+
+        /* Компактні відеоплеєри */
+        .post-preview-content video {
+            max-height: 160px;
+            max-width: 100%;
+            border-radius: 4px;
+            border: 1px solid #333;
+            margin: 8px 0;
+            display: block;
+        }
+    </style>
 
     <div class="d-flex flex-column gap-4">
         @foreach (var post in Model)
@@ -19,7 +73,6 @@
                         <h4 class="card-title fw-bold d-flex align-items-center gap-2">
                             @post.Title
                             
-                            <!-- Позначка чернетки -->
                             @if (!post.IsPublished)
                             {
                                 <span class="badge bg-secondary text-light border-0 rounded-0" style="font-size: 0.7rem;">ЧЕРНЕТКА</span>
@@ -37,23 +90,15 @@
 
                     @if (ViewBag.IsAdmin || ViewBag.UserTier >= post.RequiredTierLevel || post.RequiredTierLevel == 0)
                     {
-                        <!-- ФОРМАТУВАННЯ ПРЕВ'Ю (Приховуємо HTML теги медіа) -->
-                       
-                            string previewText = post.ContentMarkdown ?? "";
-                            previewText = System.Text.RegularExpressions.Regex.Replace(previewText, @"<video.*?>.*?</video>", "[🎥 Відео]");
-                            previewText = System.Text.RegularExpressions.Regex.Replace(previewText, @"<audio.*?>.*?</audio>", "[🎵 Аудіо]");
-                            previewText = System.Text.RegularExpressions.Regex.Replace(previewText, @"!\[.*?\]\(.*?\)", "[🖼 Картинка]");
-                            previewText = System.Text.RegularExpressions.Regex.Replace(previewText, @"\[(.*?)\]\(.*?\)", "$1"); 
+                        <!-- Замість обрізання, рендеримо Markdown, але в рамці з обрізанням висоти -->
+                        <div class="post-preview-content text-white-50">
+                            @Html.Raw(Markdown.ToHtml(post.ContentMarkdown ?? "", new MarkdownPipelineBuilder().UseAdvancedExtensions().Build()))
+                            
+                            <!-- Плавне згасання внизу -->
+                            <div class="post-preview-fade"></div>
+                        </div>
 
-                            if (previewText.Length > 150) {
-                                previewText = previewText.Substring(0, 150) + "...";
-                           
-                        }
-                        
-                        <p class="card-text text-white-50" style="white-space: pre-wrap;">
-                            @previewText
-                        </p>
-                        <a asp-action="Details" asp-route-id="@post.Id" class="btn btn-sm btn-outline-light rounded-0 mt-2">Читати далі</a>
+                        <a asp-action="Details" asp-route-id="@post.Id" class="btn btn-sm btn-outline-light rounded-0 mt-3">Читати далі</a>
                     }
                     else
                     {
@@ -67,11 +112,9 @@
                     }
                 </div>
                 
-               <!-- Показуємо кнопки тільки якщо юзер - адмін І ВІН ЖЕ є автором цього поста -->
                 @if (ViewBag.IsAdmin && post.AuthorId == ViewBag.CurrentUserId)
                 {
                     <div class="card-footer bg-dark border-secondary d-flex gap-2">
-                        <!-- ФІКС ТУРБО: Додано data-turbo="false" для сторінки редагування -->
                         <a asp-action="Edit" asp-route-id="@post.Id" class="btn btn-sm btn-outline-secondary rounded-0" data-turbo="false">Редагувати</a>
                         <a asp-action="Delete" asp-route-id="@post.Id" class="btn btn-sm btn-outline-danger rounded-0">Видалити</a>
                     </div>

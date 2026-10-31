@@ -23,7 +23,6 @@
             <p class="text-light opacity-75 small text-start mt-4 markdown-content">@Model.Description</p>
         </div>
 
-    
         <div class="col-md-8">
             <h3 class="section-title">Трекліст</h3>
             
@@ -36,15 +35,14 @@
                             <span class="text-white">@track.Title</span>
                             
                             <div class="d-flex gap-3 align-items-center">
-                                <!-- Виклик плеєра -->
+                                <!-- ФІКС: Екрануємо апострофи за допомогою replace -->
                                <button class="btn-text-muted" style="font-size: 0.8rem;"
-                                       onclick="playTrack('@track.AudioFileUrl', '@track.Title', '@Model.Title', '@Model.CoverImageUrl', '/Releases/Details/@Model.Id')">
+                                       onclick="playTrack('@track.AudioFileUrl', '@track.Title.Replace("'", "\\'")', '@Model.Title.Replace("'", "\\'")', '@Model.CoverImageUrl', '/Releases/Details/@Model.Id')">
                                    ▶ Слухати
                                </button>
 
                                @if (ViewBag.IsAdmin)
                                {
-                                   <!-- Кнопка видалення треку -->
                                    <form asp-action="DeleteTrack" method="post" class="m-0 p-0" onsubmit="return confirm('Видалити цей трек?');">
                                        <input type="hidden" name="trackId" value="@track.Id" />
                                        <input type="hidden" name="releaseId" value="@Model.Id" />
@@ -63,7 +61,6 @@
 
             @if (ViewBag.IsAdmin)
             {
-                <!-- Форма швидкого додавання MP3 -->
                 <h4 class="section-title" style="font-size: 0.85rem;">Додати новий трек</h4>
                 <div class="p-4 border border-secondary bg-transparent">
                     <form asp-action="AddTrack" enctype="multipart/form-data" class="row g-3 align-items-end">

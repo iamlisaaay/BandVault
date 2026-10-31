@@ -43,7 +43,8 @@ namespace BandVault.Web
             {
                 builder.Services.AddStackExchangeRedisCache(options =>
                 {
-                    options.Configuration = redisConnectionString;
+                    // Додано таймаути, щоб додаток не вис на 5с, якщо локальний Redis лежить
+                    options.Configuration = $"{redisConnectionString},connectTimeout=300,syncTimeout=300,abortConnect=false";
                     options.InstanceName = "BandVault_";
                 });
             }

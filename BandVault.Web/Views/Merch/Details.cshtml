@@ -48,7 +48,17 @@
                         }
                     </div>
 
-                    <h3 class="fw-bold text-white mb-4">@Model.Price.ToString("0.00") $</h3>
+                    @if (User.Identity != null && User.Identity.IsAuthenticated && Model.FanPrice.HasValue)
+                    {
+                        <h3 class="fw-bold text-white mb-4">
+                            <s class="text-secondary fs-5">@Model.Price.ToString("0.00") $</s> 
+                            <span class="text-success ms-2">@Model.FanPrice.Value.ToString("0.00") $</span>
+                        </h3>
+                    }
+                    else
+                    {
+                        <h3 class="fw-bold text-white mb-4">@Model.Price.ToString("0.00") $</h3>
+                    }
 
                     <div class="mb-5 flex-grow-1">
                         <h6 class="text-uppercase meta-text text-secondary border-bottom border-secondary pb-2 mb-3">Опис товару</h6>
@@ -59,7 +69,7 @@
                     @if (User.HasClaim("IsAdmin", "true"))
                     {
                         <div class="d-flex gap-3 mt-auto pt-4 border-top border-secondary">
-                            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-light rounded-0 text-uppercase fw-bold px-4" style="letter-spacing: 1px;">
+                            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-light rounded-0 text-uppercase fw-bold px-4" style="letter-spacing: 1px;" data-turbo="false">
                                 Редагувати
                             </a>
                             <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger rounded-0 text-uppercase border-secondary px-4" style="letter-spacing: 1px;">

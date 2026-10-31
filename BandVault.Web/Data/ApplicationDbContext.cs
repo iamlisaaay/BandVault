@@ -24,8 +24,6 @@ namespace BandVault.Web.Data
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Post> Posts { get; set; }
 
- 
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -34,27 +32,35 @@ namespace BandVault.Web.Data
             modelBuilder.Entity<Order>()
                 .Property(o => o.TotalAmount)
                 .HasColumnType("decimal(18,2)");
-            // Додаємо базові музичні жанри
-            modelBuilder.Entity<Genre>().HasData(
-                new Genre { Id = 1, Name = "Visual Kei" },
-                new Genre { Id = 2, Name = "J-Rock" },
-                new Genre { Id = 3, Name = "Symphonic Metal" }
-            );
+
             modelBuilder.Entity<OrderItem>()
                 .Property(oi => oi.UnitPrice)
                 .HasColumnType("decimal(18,2)");
-            base.OnModelCreating(modelBuilder);
-            modelBuilder.Entity<MerchCategory>().HasData(
-                new MerchCategory { Id = 1, Name = "Одяг" },
-                new MerchCategory { Id = 2, Name = "Аксесуари" }
-            );
+
             modelBuilder.Entity<MerchItem>()
                 .Property(m => m.Price)
+                .HasColumnType("decimal(18,2)");
+
+            // ФІКС: Додано точність для FanPrice
+            modelBuilder.Entity<MerchItem>()
+                .Property(m => m.FanPrice)
                 .HasColumnType("decimal(18,2)");
 
             modelBuilder.Entity<SubscriptionTier>()
                 .Property(s => s.Price)
                 .HasColumnType("decimal(18,2)");
+
+            // Додаємо базові музичні жанри та категорії мерчу
+            modelBuilder.Entity<Genre>().HasData(
+                new Genre { Id = 1, Name = "Visual Kei" },
+                new Genre { Id = 2, Name = "J-Rock" },
+                new Genre { Id = 3, Name = "Symphonic Metal" }
+            );
+
+            modelBuilder.Entity<MerchCategory>().HasData(
+                new MerchCategory { Id = 1, Name = "Одяг" },
+                new MerchCategory { Id = 2, Name = "Аксесуари" }
+            );
 
             // Заборона каскадного видалення для деяких зв'язків, щоб уникнути циклів
             modelBuilder.Entity<Order>()

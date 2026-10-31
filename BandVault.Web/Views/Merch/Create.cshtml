@@ -46,7 +46,8 @@
 
                 <div class="mb-3">
                     <label asp-for="CategoryId" class="form-label fw-bold text-uppercase meta-text">Категорія</label>
-                    <select asp-for="CategoryId" class="form-select bg-dark border-secondary text-white rounded-0" asp-items="ViewBag.Categories">
+                    <!-- ФІКС: Прибрано asp-items, щоб Select2 завантажував дані тільки через AJAX -->
+                    <select asp-for="CategoryId" class="form-select bg-dark border-secondary text-white rounded-0">
                         <option value="">Оберіть категорію...</option>
                     </select>
                     <span asp-validation-for="CategoryId" class="text-danger meta-text"></span>
@@ -69,7 +70,6 @@
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
 
-    <!-- Підключення Select2 для задачі F2 -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <style>

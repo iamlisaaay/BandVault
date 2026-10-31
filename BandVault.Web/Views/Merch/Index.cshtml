@@ -8,15 +8,14 @@
         <h3 class="section-title border-0 mb-0 pb-0">Каталог мерчу</h3>
         @if (User.HasClaim("IsAdmin", "true"))
         {
-            <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold" style="letter-spacing: 1px;">+ Додати мерч</a>
+            <!-- ФІКС: data-turbo="false" щоб Select2 коректно завантажився -->
+            <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold" style="letter-spacing: 1px;" data-turbo="false">+ Додати мерч</a>
         }
     </div>
 
- 
     <div class="position-relative mb-5 w-50 mx-auto">
         <input type="text" id="merchSearchInput" class="form-control bg-transparent border-secondary text-white rounded-0" placeholder="ПОШУК ТОВАРУ (ВІД 3 СИМВОЛІВ)..." autocomplete="off" style="letter-spacing: 1px; font-size: 0.9rem;" />
         
-       
         <ul id="searchResults" class="list-group d-none position-absolute w-100 mt-1 rounded-0 border border-secondary" style="z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.5); background-color: #1a1a1a;"></ul>
     </div>
 
@@ -25,7 +24,6 @@
         {
             <div class="col">
                 <div class="card h-100 bg-transparent border-secondary text-white hover-lift rounded-0">
-                    <!-- Зображення товару -->
                     @if (!string.IsNullOrEmpty(item.ImageUrl))
                     {
                         <img src="@item.ImageUrl" class="card-img-top rounded-0" alt="@item.Title" style="height: 250px; object-fit: cover;">
@@ -42,16 +40,14 @@
                         <p class="card-text mb-1 meta-text">КАТЕГОРІЯ: @(item.Category?.Name ?? "НЕМАЄ")</p>
                         @if (User.Identity != null && User.Identity.IsAuthenticated && item.FanPrice.HasValue)
                         {
-                            <!-- Юзер в системі і є знижка -->
                             <p class="card-text mb-1 meta-text">
-                                ЦІНА: <s class="text-secondary">@item.Price.ToString("0.00") €</s>
-                                <strong class="text-success fs-5">@item.FanPrice.Value.ToString("0.00") €</strong>
+                                ЦІНА: <s class="text-secondary">@item.Price.ToString("0.00") $</s>
+                                <strong class="text-success fs-5">@item.FanPrice.Value.ToString("0.00") $</strong>
                             </p>
                         }
                         else
                         {
-                            <!-- Звичайний гість або знижки немає -->
-                            <p class="card-text mb-1 meta-text">ЦІНА: @item.Price.ToString("0.00") €</p>
+                            <p class="card-text mb-1 meta-text">ЦІНА: @item.Price.ToString("0.00") $</p>
                         }
                         <p class="card-text meta-text">
                             ЗАЛИШОК: 
@@ -73,7 +69,7 @@
                         @if (User.HasClaim("IsAdmin", "true"))
                         {
                             <div class="d-flex gap-2">
-                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary w-50 rounded-0">Ред.</a>
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary w-50 rounded-0" data-turbo="false">Ред.</a>
                                 <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger w-50 rounded-0 border-secondary text-secondary">Вид.</a>
                             </div>
                         }
@@ -96,32 +92,12 @@
             background-color: #1a1a1a !important;
         }
 
-            #searchResults.d-none {
-                display: none !important;
-            }
-
-        .search-result-item {
-            cursor: pointer;
-            transition: background-color 0.2s;
-            color: white !important;
-        }
-
-            .search-result-item:hover {
-                background-color: #333 !important;
-            }
-
-        #searchResults::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        #searchResults::-webkit-scrollbar-track {
-            background: #1a1a1a;
-        }
-
-        #searchResults::-webkit-scrollbar-thumb {
-            background: #555;
-            border-radius: 4px;
-        }
+            #searchResults.d-none { display: none !important; }
+        .search-result-item { cursor: pointer; transition: background-color 0.2s; color: white !important; }
+            .search-result-item:hover { background-color: #333 !important; }
+        #searchResults::-webkit-scrollbar { width: 8px; }
+        #searchResults::-webkit-scrollbar-track { background: #1a1a1a; }
+        #searchResults::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
     </style>
 
     <script>
@@ -182,7 +158,7 @@
                                             <img src="${imageUrl}" alt="Cover" style="width: 40px; height: 40px; object-fit: cover;" class="border border-secondary">
                                             <div class="flex-grow-1 overflow-hidden">
                                                 <h6 class="mb-0 fw-bold text-truncate">${item.title || 'Без назви'}</h6>
-                                                <small class="meta-text text-secondary">${price} €</small>
+                                                <small class="meta-text text-secondary">${price} $</small>
                                             </div>
                                         </div>
                                     `;

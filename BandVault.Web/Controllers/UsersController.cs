@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
@@ -38,7 +41,6 @@ namespace BandVault.Web.Controllers
             }
             else
             {
-
                 targetUser = await _context.Users
                     .Include(u => u.SubscriptionTier)
                     .FirstOrDefaultAsync(u => u.Id == id);
@@ -46,12 +48,10 @@ namespace BandVault.Web.Controllers
                 if (targetUser == null) return NotFound();
             }
 
-
             if (string.IsNullOrEmpty(targetUser.AvatarUrl))
             {
                 targetUser.AvatarUrl = $"https://via.placeholder.com/150/1a1a1a/ffffff?text={targetUser.DisplayName.Substring(0, 1).ToUpper()}";
             }
-
 
             if (targetUser.IsAdmin)
             {
@@ -79,7 +79,6 @@ namespace BandVault.Web.Controllers
             user.DisplayName = displayName;
             user.Bio = bio;
 
-
             if (avatarFile != null && avatarFile.Length > 0)
             {
                 string fileName = Guid.NewGuid().ToString() + Path.GetExtension(avatarFile.FileName);
@@ -95,10 +94,24 @@ namespace BandVault.Web.Controllers
 
             await _context.SaveChangesAsync();
 
+            // ФІКС: Оновлюємо Cookie, щоб аватарка і нове ім'я одразу з'явилися в шапці
+            var userClaims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, user.Email),
+                new Claim("UserId", user.Id.ToString()),
+                new Claim("DisplayName", user.DisplayName ?? user.Email.Split('@')[0]),
+                new Claim("IsAdmin", user.IsAdmin.ToString().ToLower()),
+                new Claim("AvatarUrl", user.AvatarUrl ?? $"https://via.placeholder.com/150/1a1a1a/ffffff?text={user.Email[..1].ToUpper()}")
+            };
+
+            var identity = new ClaimsIdentity(userClaims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var principal = new ClaimsPrincipal(identity);
+
+            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+
             return RedirectToAction(nameof(Details));
         }
 
-       
         [HttpPost]
         public async Task<IActionResult> ChangeTier(int tierId)
         {
@@ -107,7 +120,6 @@ namespace BandVault.Web.Controllers
 
             if (user == null) return RedirectToAction("Login", "Auth");
 
-        
             var tier = await _context.SubscriptionTiers.FindAsync(tierId);
             if (tier != null)
             {
@@ -115,7 +127,6 @@ namespace BandVault.Web.Controllers
                 await _context.SaveChangesAsync();
             }
 
-          
             return RedirectToAction("Index", "Home");
         }
     }

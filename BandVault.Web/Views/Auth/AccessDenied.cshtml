@@ -1,0 +1,16 @@
+﻿@{
+    ViewData["Title"] = "Доступ заборонено";
+}
+
+<div class="container my-5 text-center py-5">
+    <h1 class="display-1 text-danger fw-bold mb-4">403</h1>
+    <h2 class="text-white mb-4 text-uppercase" style="letter-spacing: 2px;">Доступ заборонено</h2>
+    <p class="text-secondary meta-text fs-6 mb-5">
+        У вас немає прав для перегляду цієї сторінки або виконання цієї дії.<br />
+        Якщо ви вважаєте, що це помилка, зверніться до адміністратора.
+    </p>
+    
+    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-light rounded-0 text-uppercase fw-bold px-5 py-3" style="letter-spacing: 1px;">
+        &larr; Повернутися на головну
+    </a>
+</div>

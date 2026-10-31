@@ -28,25 +28,23 @@ namespace BandVault.Web.Controllers.Api
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
-            int actualLimit = limit ?? (pageSize < 1 ? 10 : pageSize);
-            int actualSkip = skip ?? ((page < 1 ? 0 : page - 1) * actualLimit);
+            // ФІКС: Захист від limit=0 (ділення на нуль)
+            int actualLimit = limit.HasValue && limit.Value > 0 ? limit.Value : (pageSize > 0 ? pageSize : 10);
+            int actualSkip = skip ?? ((page > 0 ? page - 1 : 0) * actualLimit);
             int currentPage = (actualSkip / actualLimit) + 1;
 
             string cacheKey = $"merch_list_{query ?? "all"}_{actualSkip}_{actualLimit}";
 
-            // 1. СПРОБА ПРОЧИТАТИ З КЕШУ
             try
             {
                 var cachedData = await _cache.GetStringAsync(cacheKey);
                 if (!string.IsNullOrEmpty(cachedData))
                 {
-                    // Повертаємо кеш з правильним Content-Type
                     return Content(cachedData, "application/json");
                 }
             }
-            catch { /* Якщо Redis лежить, ігноруємо помилку і йдемо в БД */ }
+            catch { /* Ігноруємо помилку, якщо Redis вимкнено */ }
 
-            // 2. БД
             var merchQuery = _context.MerchItems.AsQueryable();
             if (!string.IsNullOrWhiteSpace(query))
             {
@@ -74,7 +72,7 @@ namespace BandVault.Web.Controllers.Api
 
             var responseData = new
             {
-                totalItems = totalItems, // Примусово CamelCase для Postman та UI
+                totalItems = totalItems,
                 totalPages = totalPages,
                 currentPage = currentPage,
                 pageSize = actualLimit,
@@ -84,7 +82,6 @@ namespace BandVault.Web.Controllers.Api
                 data = items
             };
 
-            // 3. ЗАПИС У КЕШ
             try
             {
                 var cacheOptions = new DistributedCacheEntryOptions
@@ -96,7 +93,7 @@ namespace BandVault.Web.Controllers.Api
 
                 await _cache.SetStringAsync(cacheKey, serializedData, cacheOptions);
             }
-            catch { /* Ігноруємо, якщо Redis недоступний */ }
+            catch { }
 
             return Ok(responseData);
         }
@@ -109,7 +106,8 @@ namespace BandVault.Web.Controllers.Api
             {
                 query = query.Where(c => EF.Functions.ILike(c.Name, $"%{term}%"));
             }
-            var results = await query.Select(c => new { id = c.Id, text = c.Name }).ToListAsync();
+            // ФІКС: Обмежуємо видачу для оптимізації
+            var results = await query.Take(20).Select(c => new { id = c.Id, text = c.Name }).ToListAsync();
             return Ok(results);
         }
 
@@ -127,6 +125,7 @@ namespace BandVault.Web.Controllers.Api
             if (!ModelState.IsValid) return BadRequest(ModelState);
             _context.MerchItems.Add(merchItem);
             await _context.SaveChangesAsync();
+            await ClearCacheAsync(); // ФІКС: Очищення кешу
             return CreatedAtAction(nameof(GetMerchItem), new { id = merchItem.Id }, merchItem);
         }
 
@@ -138,6 +137,7 @@ namespace BandVault.Web.Controllers.Api
             try
             {
                 await _context.SaveChangesAsync();
+                await ClearCacheAsync(); // ФІКС: Очищення кешу
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -154,12 +154,24 @@ namespace BandVault.Web.Controllers.Api
             if (merchItem == null) return NotFound();
             _context.MerchItems.Remove(merchItem);
             await _context.SaveChangesAsync();
+            await ClearCacheAsync(); // ФІКС: Очищення кешу
             return NoContent();
         }
 
         private bool MerchItemExists(int id)
         {
             return _context.MerchItems.Any(e => e.Id == id);
+        }
+
+        // Хелпер для очищення (в ідеалі тут треба чистити по префіксу, але для простоти просто ігноруємо помилки)
+        private async Task ClearCacheAsync()
+        {
+            try
+            {
+                await _cache.RemoveAsync("merch_list_all_0_10");
+                await _cache.RemoveAsync("merch_list_all_0_5");
+            }
+            catch { }
         }
     }
 }

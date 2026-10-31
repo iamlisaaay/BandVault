@@ -23,25 +23,16 @@ namespace BandVault.Web.Controllers
         [HttpGet]
         public IActionResult Login()
         {
+            // Якщо користувач вже авторизований, не показуємо йому сторінку логіну
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                return RedirectToAction("Index", "Home");
+            }
             return View();
         }
 
         // ============================================
-        // 1. ВХІД ЧЕРЕЗ EMAIL (Для тестів та локальної розробки)
-        // ============================================
-        [HttpPost]
-        public async Task<IActionResult> Login(string email)
-        {
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                return View();
-            }
-
-            return await ProcessUserLogin(email.Trim().ToLower(), null, null, "/");
-        }
-
-        // ============================================
-        // 2. GOOGLE OAUTH2 ЛОГІКА (C16)
+        // GOOGLE OAUTH2 ЛОГІКА (C16)
         // ============================================
         [HttpPost]
         public IActionResult ExternalLogin(string returnUrl = "/")
@@ -54,7 +45,6 @@ namespace BandVault.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> ExternalLoginCallback(string returnUrl = "/")
         {
-            // Отримуємо результат автентифікації
             var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
             if (!result.Succeeded || result.Principal == null)
@@ -76,7 +66,7 @@ namespace BandVault.Web.Controllers
         }
 
         // ============================================
-        // 3. СПІЛЬНИЙ МЕТОД ДЛЯ СТВОРЕННЯ/ОНОВЛЕННЯ ЮЗЕРА
+        // СПІЛЬНИЙ МЕТОД ДЛЯ СТВОРЕННЯ/ОНОВЛЕННЯ ЮЗЕРА
         // ============================================
         private async Task<IActionResult> ProcessUserLogin(string userEmail, string? displayName, string? avatarUrl, string returnUrl)
         {
@@ -133,7 +123,6 @@ namespace BandVault.Web.Controllers
                 }
             }
 
-            // Формуємо клейми для поточної сесії
             var userClaims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.Email),
@@ -146,7 +135,6 @@ namespace BandVault.Web.Controllers
             var identity = new ClaimsIdentity(userClaims, CookieAuthenticationDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
 
-            // Оновлюємо куку з новими актуальними клеймами
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
 
             if (Url.IsLocalUrl(returnUrl))
@@ -161,6 +149,16 @@ namespace BandVault.Web.Controllers
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return RedirectToAction("Index", "Home");
+        }
+
+        // ============================================
+        // ЕКШЕН ДЛЯ ДОСТУПУ ЗАБОРОНЕНО
+        // ============================================
+        [HttpGet]
+        public IActionResult AccessDenied()
+        {
+            // Якщо користувач не має прав доступу, покажемо йому гарну сторінку 403
+            return View();
         }
     }
 }
