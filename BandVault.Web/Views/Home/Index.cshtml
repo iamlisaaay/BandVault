@@ -117,6 +117,11 @@
         height: 25px;
         width: 180px;
     }
+    
+    @@keyframes slideDownStrict {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 </style>
 
 <div class="group-hero mb-5">
@@ -172,7 +177,7 @@
 <div class="container my-5 pt-4" id="news">
     <h4 class="text-uppercase text-secondary mb-5 text-center" style="letter-spacing: 4px;">Секретні матеріали</h4>
 
-    <div class="row row-cols-1 g-4 max-w-75 mx-auto mb-5" style="max-width: 800px; margin: 0 auto;">
+    <div class="row row-cols-1 g-4 max-w-75 mx-auto mb-5" style="max-width: 800px; margin: 0 auto;" id="feedContainer">
         @if (Model != null && Model.Any())
         {
             foreach (var post in Model)
@@ -199,7 +204,7 @@
                         <div class="card bg-transparent border-secondary text-white rounded-0">
                             <div class="card-body p-4">
                                 <h6 class="text-secondary meta-text mb-3 border-bottom border-secondary pb-2">
-                                    @post.CreatedAt.ToString("dd.MM.yyyy") | TIER @post.RequiredTierLevel
+                                    @post.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy") | TIER @post.RequiredTierLevel
                                 </h6>
                                 <h4 class="card-title fw-bold text-uppercase mb-3">@post.Title</h4>
 
@@ -347,6 +352,49 @@
                     tierModal.show();
                 }
             }
+
+            // ПЕРЕХОПЛЕННЯ СИГНАЛУ НА ДОДАВАННЯ ПОСТА БЕЗ ПЕРЕЗАВАНТАЖЕННЯ (SignalR)
+            const intervalId = setInterval(function () {
+                if (window.feedHubConnection) {
+                    clearInterval(intervalId);
+                    window.feedHubConnection.on("ReceiveNewPost", function (post) {
+                        const container = document.getElementById('feedContainer');
+                        if (container) {
+                            
+                            if (container.children.length >= 3) {
+                                container.removeChild(container.lastElementChild);
+                            }
+
+                            const today = new Date();
+                            const dateStr = String(today.getDate()).padStart(2, '0') + '.' + 
+                                          String(today.getMonth() + 1).padStart(2, '0') + '.' + 
+                                          today.getFullYear();
+
+                            // Формуємо чистий і строгий HTML без смайлів
+                            const newCardHtml = `
+                                <div class="col" style="animation: slideDownStrict 0.5s ease-out;">
+                                    <div class="card bg-transparent border-secondary text-white rounded-0">
+                                        <div class="card-body p-4">
+                                            <h6 class="text-secondary meta-text mb-3 border-bottom border-secondary pb-2">
+                                                ${dateStr} | TIER ${post.tier}
+                                            </h6>
+                                            <h4 class="card-title fw-bold text-uppercase mb-3">${post.title}</h4>
+                                            
+                                            <div class="home-preview-wrapper text-light opacity-75">
+                                                <p><em>Нова публікація. Натисніть "Читати далі", щоб переглянути вміст.</em></p>
+                                                <div class="home-preview-fade"></div>
+                                            </div>
+                                            <a href="/Posts/Details/${post.id}" class="btn btn-sm btn-outline-light rounded-0">Читати далі</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            container.insertAdjacentHTML('afterbegin', newCardHtml);
+                        }
+                    });
+                }
+            }, 500);
         });
     </script>
 }
