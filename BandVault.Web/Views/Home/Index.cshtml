@@ -118,7 +118,7 @@
         width: 180px;
     }
     
-    @@keyframes slideDownStrict {
+    @@keyframes slideDownCard {
         from { opacity: 0; transform: translateY(-10px); }
         to { opacity: 1; transform: translateY(0); }
     }
@@ -302,7 +302,7 @@
                                                 foreach (var feature in tier.Features)
                                                 {
                                                     <li class="mb-3 text-light" style="font-size: 0.9rem;">
-                                                        <span class="text-success me-2"></span> @feature.Description
+                                                        <span class="text-success me-2">✓</span> @feature.Description
                                                     </li>
                                                 }
                                             }
@@ -354,6 +354,20 @@
             }
 
             // ПЕРЕХОПЛЕННЯ СИГНАЛУ НА ДОДАВАННЯ ПОСТА БЕЗ ПЕРЕЗАВАНТАЖЕННЯ (SignalR)
+            const currentUserTier = @userTier;
+            const isAuth = @isAuth.ToString().ToLower();
+
+            // Проста функція для екранування символів (захист від XSS)
+            const escapeHTML = str => str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+
             const intervalId = setInterval(function () {
                 if (window.feedHubConnection) {
                     clearInterval(intervalId);
@@ -361,6 +375,12 @@
                         const container = document.getElementById('feedContainer');
                         if (container) {
                             
+                            // Видаляємо заглушку "НОВИН ПОКИ НЕМАЄ", якщо вона існує
+                            const noNewsElement = container.querySelector('.col-12.text-center');
+                            if (noNewsElement) {
+                                container.removeChild(noNewsElement);
+                            }
+
                             if (container.children.length >= 3) {
                                 container.removeChild(container.lastElementChild);
                             }
@@ -370,25 +390,39 @@
                                           String(today.getMonth() + 1).padStart(2, '0') + '.' + 
                                           today.getFullYear();
 
-                            // Формуємо чистий і строгий HTML без смайлів
-                            const newCardHtml = `
-                                <div class="col" style="animation: slideDownStrict 0.5s ease-out;">
-                                    <div class="card bg-transparent border-secondary text-white rounded-0">
-                                        <div class="card-body p-4">
-                                            <h6 class="text-secondary meta-text mb-3 border-bottom border-secondary pb-2">
-                                                ${dateStr} | TIER ${post.tier}
-                                            </h6>
-                                            <h4 class="card-title fw-bold text-uppercase mb-3">${post.title}</h4>
-                                            
-                                            <div class="home-preview-wrapper text-light opacity-75">
-                                                <p><em>Нова публікація. Натисніть "Читати далі", щоб переглянути вміст.</em></p>
-                                                <div class="home-preview-fade"></div>
-                                            </div>
-                                            <a href="/Posts/Details/${post.id}" class="btn btn-sm btn-outline-light rounded-0">Читати далі</a>
+                            const safeTitle = escapeHTML(post.title);
+                            let newCardHtml = '';
+
+                            if (post.tier > currentUserTier) {
+                                const btnText = isAuth ? 'Підвищити рівень' : 'Долучитися до фан-клубу';
+                                newCardHtml = `
+                                    <div class="col" style="animation: slideDownCard 0.5s ease-out;">
+                                        <div class="card bg-transparent border-secondary text-center py-5 rounded-0" style="border-style: dashed !important;">
+                                            <h5 class="text-secondary meta-text mb-3">ЦЕЙ КОНТЕНТ ДОСТУПНИЙ ТІЛЬКИ ДЛЯ TIER ${post.tier}+</h5>
+                                            <button class="btn btn-sm btn-outline-secondary rounded-0 text-uppercase mx-auto" data-bs-toggle="modal" data-bs-target="#tierModal">${btnText}</button>
                                         </div>
                                     </div>
-                                </div>
-                            `;
+                                `;
+                            } else {
+                                newCardHtml = `
+                                    <div class="col" style="animation: slideDownCard 0.5s ease-out;">
+                                        <div class="card bg-transparent border-secondary text-white rounded-0">
+                                            <div class="card-body p-4">
+                                                <h6 class="text-secondary meta-text mb-3 border-bottom border-secondary pb-2">
+                                                    ${dateStr} | TIER ${post.tier}
+                                                </h6>
+                                                <h4 class="card-title fw-bold text-uppercase mb-3">${safeTitle}</h4>
+                                                
+                                                <div class="home-preview-wrapper text-light opacity-75">
+                                                    <p><em>Нова публікація. Натисніть "Читати далі", щоб переглянути вміст.</em></p>
+                                                    <div class="home-preview-fade"></div>
+                                                </div>
+                                                <a href="/Posts/Details/${post.id}" class="btn btn-sm btn-outline-light rounded-0">Читати далі</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }
                             
                             container.insertAdjacentHTML('afterbegin', newCardHtml);
                         }

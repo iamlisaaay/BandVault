@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
 using BandVault.Web.Models;
+using BandVault.Web.Services;
 
 namespace BandVault.Web.Controllers
 {
@@ -11,11 +12,13 @@ namespace BandVault.Web.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
+        private readonly IFileService _fileService;
 
-        public MerchController(ApplicationDbContext context, IWebHostEnvironment env)
+        public MerchController(ApplicationDbContext context, IWebHostEnvironment env, IFileService fileService)
         {
             _context = context;
             _env = env;
+            _fileService = fileService;
         }
 
         public async Task<IActionResult> Index()
@@ -33,6 +36,7 @@ namespace BandVault.Web.Controllers
 
             return View(merch);
         }
+
         [Authorize]
         public IActionResult Create()
         {
@@ -50,17 +54,10 @@ namespace BandVault.Web.Controllers
 
             if (ModelState.IsValid)
             {
+                // C19: Використання Azure Blob Storage
                 if (imageFile != null && imageFile.Length > 0)
                 {
-                    string fileName = Guid.NewGuid().ToString() + Path.GetExtension(imageFile.FileName);
-                    string uploadPath = Path.Combine(_env.WebRootPath, "images", "merch");
-                    Directory.CreateDirectory(uploadPath);
-
-                    using (var stream = new FileStream(Path.Combine(uploadPath, fileName), FileMode.Create))
-                    {
-                        await imageFile.CopyToAsync(stream);
-                    }
-                    merchItem.ImageUrl = "/images/merch/" + fileName;
+                    merchItem.ImageUrl = await _fileService.UploadFileAsync(imageFile, "merch");
                 }
 
                 _context.MerchItems.Add(merchItem);
@@ -113,17 +110,15 @@ namespace BandVault.Web.Controllers
                     existingItem.StockQuantity = merchItem.StockQuantity;
                     existingItem.CategoryId = merchItem.CategoryId;
 
+                    // C19: Використання Azure Blob Storage
                     if (imageFile != null && imageFile.Length > 0)
                     {
-                        string fileName = Guid.NewGuid().ToString() + Path.GetExtension(imageFile.FileName);
-                        string uploadPath = Path.Combine(_env.WebRootPath, "images", "merch");
-                        Directory.CreateDirectory(uploadPath);
-
-                        using (var stream = new FileStream(Path.Combine(uploadPath, fileName), FileMode.Create))
+                        // Якщо є старий файл, його можна видалити
+                        if (!string.IsNullOrEmpty(existingItem.ImageUrl))
                         {
-                            await imageFile.CopyToAsync(stream);
+                            await _fileService.DeleteFileAsync(existingItem.ImageUrl);
                         }
-                        existingItem.ImageUrl = "/images/merch/" + fileName;
+                        existingItem.ImageUrl = await _fileService.UploadFileAsync(imageFile, "merch");
                     }
 
                     await _context.SaveChangesAsync();
@@ -168,6 +163,12 @@ namespace BandVault.Web.Controllers
             var merchItem = await _context.MerchItems.FindAsync(id);
             if (merchItem != null)
             {
+                // Опціонально: видаляємо фото з Azure при видаленні товару
+                if (!string.IsNullOrEmpty(merchItem.ImageUrl))
+                {
+                    await _fileService.DeleteFileAsync(merchItem.ImageUrl);
+                }
+
                 _context.MerchItems.Remove(merchItem);
                 await _context.SaveChangesAsync();
             }

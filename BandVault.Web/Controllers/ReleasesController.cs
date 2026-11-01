@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
 using BandVault.Web.Models;
+using BandVault.Web.Services;
 
 namespace BandVault.Web.Controllers
 {
@@ -12,11 +13,13 @@ namespace BandVault.Web.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
+        private readonly IFileService _fileService;
 
-        public ReleasesController(ApplicationDbContext context, IWebHostEnvironment env)
+        public ReleasesController(ApplicationDbContext context, IWebHostEnvironment env, IFileService fileService)
         {
             _context = context;
             _env = env;
+            _fileService = fileService;
         }
 
         public async Task<IActionResult> Index()
@@ -58,17 +61,10 @@ namespace BandVault.Web.Controllers
 
             if (ModelState.IsValid)
             {
+                // C19: Використання Azure Blob Storage
                 if (coverImage != null && coverImage.Length > 0)
                 {
-                    string fileName = Guid.NewGuid().ToString() + Path.GetExtension(coverImage.FileName);
-                    string uploadPath = Path.Combine(_env.WebRootPath, "images", "releases");
-                    Directory.CreateDirectory(uploadPath);
-
-                    using (var stream = new FileStream(Path.Combine(uploadPath, fileName), FileMode.Create))
-                    {
-                        await coverImage.CopyToAsync(stream);
-                    }
-                    release.CoverImageUrl = "/images/releases/" + fileName;
+                    release.CoverImageUrl = await _fileService.UploadFileAsync(coverImage, "releases");
                 }
 
                 release.ReleaseDate = DateTime.SpecifyKind(release.ReleaseDate, DateTimeKind.Utc);
@@ -114,17 +110,14 @@ namespace BandVault.Web.Controllers
                     existingRelease.GenreId = release.GenreId;
                     existingRelease.ReleaseDate = DateTime.SpecifyKind(release.ReleaseDate, DateTimeKind.Utc);
 
+                    // C19: Використання Azure Blob Storage
                     if (coverImage != null && coverImage.Length > 0)
                     {
-                        string fileName = Guid.NewGuid().ToString() + Path.GetExtension(coverImage.FileName);
-                        string uploadPath = Path.Combine(_env.WebRootPath, "images", "releases");
-                        Directory.CreateDirectory(uploadPath);
-
-                        using (var stream = new FileStream(Path.Combine(uploadPath, fileName), FileMode.Create))
+                        if (!string.IsNullOrEmpty(existingRelease.CoverImageUrl))
                         {
-                            await coverImage.CopyToAsync(stream);
+                            await _fileService.DeleteFileAsync(existingRelease.CoverImageUrl);
                         }
-                        existingRelease.CoverImageUrl = "/images/releases/" + fileName;
+                        existingRelease.CoverImageUrl = await _fileService.UploadFileAsync(coverImage, "releases");
                     }
 
                     await _context.SaveChangesAsync();
@@ -164,6 +157,11 @@ namespace BandVault.Web.Controllers
             var release = await _context.Releases.FindAsync(id);
             if (release != null)
             {
+                if (!string.IsNullOrEmpty(release.CoverImageUrl))
+                {
+                    await _fileService.DeleteFileAsync(release.CoverImageUrl);
+                }
+
                 _context.Releases.Remove(release);
                 await _context.SaveChangesAsync();
             }
@@ -177,20 +175,14 @@ namespace BandVault.Web.Controllers
 
             if (audioFile != null && audioFile.Length > 0)
             {
-                string fileName = Guid.NewGuid().ToString() + Path.GetExtension(audioFile.FileName);
-                string uploadPath = Path.Combine(_env.WebRootPath, "audio");
-                Directory.CreateDirectory(uploadPath);
-
-                using (var stream = new FileStream(Path.Combine(uploadPath, fileName), FileMode.Create))
-                {
-                    await audioFile.CopyToAsync(stream);
-                }
+                // C19: Використання Azure Blob Storage для аудіо
+                string fileUrl = await _fileService.UploadFileAsync(audioFile, "audio");
 
                 var track = new Track
                 {
                     ReleaseId = releaseId,
                     Title = title,
-                    AudioFileUrl = "/audio/" + fileName,
+                    AudioFileUrl = fileUrl,
                     DurationSeconds = 0,
                     PlayCount = 0,
                     RequiredTierLevel = 0
@@ -211,13 +203,10 @@ namespace BandVault.Web.Controllers
             var track = await _context.Tracks.FindAsync(trackId);
             if (track != null)
             {
+                // C19: Видалення файлу з Azure
                 if (!string.IsNullOrEmpty(track.AudioFileUrl))
                 {
-                    string filePath = Path.Combine(_env.WebRootPath, track.AudioFileUrl.TrimStart('/'));
-                    if (System.IO.File.Exists(filePath))
-                    {
-                        System.IO.File.Delete(filePath);
-                    }
+                    await _fileService.DeleteFileAsync(track.AudioFileUrl);
                 }
 
                 _context.Tracks.Remove(track);

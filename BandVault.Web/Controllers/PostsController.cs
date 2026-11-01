@@ -1,10 +1,11 @@
 ﻿using BandVault.Web.Data;
 using BandVault.Web.Hubs;
 using BandVault.Web.Models;
+using BandVault.Web.Services; // Додано підключення наших сервісів
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.AspNetCore.SignalR; 
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.IO;
 using System.Net.Http;
@@ -19,13 +20,15 @@ namespace BandVault.Web.Controllers
         private readonly IWebHostEnvironment _env;
         private readonly IConfiguration _config;
         private readonly IHubContext<FeedHub> _hubContext;
+        private readonly IFileService _fileService; // НОВЕ: Сервіс для Azure
 
-        public PostsController(ApplicationDbContext context, IWebHostEnvironment env, IConfiguration config, IHubContext<FeedHub> hubContext)
+        public PostsController(ApplicationDbContext context, IWebHostEnvironment env, IConfiguration config, IHubContext<FeedHub> hubContext, IFileService fileService)
         {
             _context = context;
             _env = env;
             _config = config;
             _hubContext = hubContext;
+            _fileService = fileService;
         }
 
         [HttpPost]
@@ -36,17 +39,9 @@ namespace BandVault.Web.Controllers
             if (file == null || file.Length == 0) return BadRequest("Файл порожній.");
 
             string ext = Path.GetExtension(file.FileName).ToLower();
-            string fileName = Guid.NewGuid().ToString() + ext;
-            string uploadPath = Path.Combine(_env.WebRootPath, "uploads", "posts");
 
-            Directory.CreateDirectory(uploadPath);
-
-            using (var stream = new FileStream(Path.Combine(uploadPath, fileName), FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
-
-            string fileUrl = "/uploads/posts/" + fileName;
+            // C19: Завантажуємо файл у хмару Azure Blob Storage замість локальної папки
+            string fileUrl = await _fileService.UploadFileAsync(file, "posts");
 
             string type = "file";
             if (ext is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp") type = "image";
@@ -138,10 +133,8 @@ namespace BandVault.Web.Controllers
 
                 if (post.IsPublished)
                 {
-                    // Надсилаємо в Telegram
                     await SendTelegramNotification(post);
 
-                    // SIGNALR
                     await _hubContext.Clients.All.SendAsync("ReceiveNewPost", new
                     {
                         id = post.Id,
@@ -155,7 +148,7 @@ namespace BandVault.Web.Controllers
 
             return Forbid();
         }
-        // ФІКС B2: Виправлено парсинг Telegram, щоб не падало на спецсимволах
+
         private async Task SendTelegramNotification(Post post)
         {
             try
@@ -168,7 +161,6 @@ namespace BandVault.Web.Controllers
 
                 string postUrl = Url.Action("Details", "Posts", new { id = post.Id }, Request.Scheme) ?? "";
 
-                // Використовуємо HTML замість Markdown для надійності
                 string safeTitle = System.Net.WebUtility.HtmlEncode(post.Title);
                 string message = $"🔥 <b>Новий пост у фан-клубі!</b>\n\n<b>{safeTitle}</b>\n\n👉 <a href=\"{postUrl}\">Читати повністю</a>";
 

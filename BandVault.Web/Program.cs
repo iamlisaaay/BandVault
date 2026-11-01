@@ -65,6 +65,8 @@ namespace BandVault.Web
                 {
                     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
                 });
+            // Реєстрація сервісу для завантаження файлів в Azure
+            builder.Services.AddScoped<BandVault.Web.Services.IFileService, BandVault.Web.Services.AzureBlobService>();
 
             var app = builder.Build();
 
