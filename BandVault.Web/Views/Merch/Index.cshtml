@@ -36,7 +36,7 @@
                     <div class="card-body pb-1">
                         <h5 class="card-title fw-bold text-truncate" title="@item.Title">@item.Title</h5>
                         <p class="card-text mb-1 meta-text">КАТЕГОРІЯ: @(item.Category?.Name ?? "НЕМАЄ")</p>
-                        @if (User.Identity != null && User.Identity.IsAuthenticated && item.FanPrice.HasValue)
+                        @if (ViewBag.UserTier > 0 && item.FanPrice.HasValue)
                         {
                             <p class="card-text mb-1 meta-text">
                                 ЦІНА: <s class="text-secondary">@item.Price.ToString("0.00") $</s>

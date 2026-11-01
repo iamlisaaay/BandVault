@@ -41,7 +41,6 @@ namespace BandVault.Web.Controllers
                 {
                     ViewBag.DaysJoined = (int)(DateTime.UtcNow - currentUser.CreatedAt).TotalDays;
 
-                    // Фікс B6: Адмін завжди отримує максимальний Tier для перегляду новин
                     if (currentUser.IsAdmin)
                     {
                         currentUserTierLevel = 999;
@@ -62,11 +61,12 @@ namespace BandVault.Web.Controllers
                 .ToListAsync();
             ViewBag.Tiers = tiers;
 
+            // БЕРЕМО РІВНО 3 ОСТАННІ ПОСТИ ДЛЯ ГОЛОВНОЇ СТОРІНКИ
             var adminPosts = await _context.Posts
                 .Include(p => p.Author)
                 .Where(p => p.IsPublished && p.Author != null && p.Author.IsAdmin)
                 .OrderByDescending(p => p.CreatedAt)
-                .Take(5)
+                .Take(3)
                 .ToListAsync();
 
             return View(adminPosts);

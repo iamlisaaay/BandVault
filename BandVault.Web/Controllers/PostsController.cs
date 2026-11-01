@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using BandVault.Web.Data;
+using BandVault.Web.Hubs;
+using BandVault.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.SignalR; 
 using Microsoft.EntityFrameworkCore;
-using BandVault.Web.Data;
-using BandVault.Web.Models;
 using System.IO;
 using System.Net.Http;
 using System.Web;
@@ -16,12 +18,14 @@ namespace BandVault.Web.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
         private readonly IConfiguration _config;
+        private readonly IHubContext<FeedHub> _hubContext;
 
-        public PostsController(ApplicationDbContext context, IWebHostEnvironment env, IConfiguration config)
+        public PostsController(ApplicationDbContext context, IWebHostEnvironment env, IConfiguration config, IHubContext<FeedHub> hubContext)
         {
             _context = context;
             _env = env;
             _config = config;
+            _hubContext = hubContext;
         }
 
         [HttpPost]
@@ -134,7 +138,16 @@ namespace BandVault.Web.Controllers
 
                 if (post.IsPublished)
                 {
+                    // Надсилаємо в Telegram
                     await SendTelegramNotification(post);
+
+                    // SIGNALR
+                    await _hubContext.Clients.All.SendAsync("ReceiveNewPost", new
+                    {
+                        id = post.Id,
+                        title = post.Title,
+                        tier = post.RequiredTierLevel
+                    });
                 }
 
                 return RedirectToAction(nameof(Index));
@@ -142,7 +155,6 @@ namespace BandVault.Web.Controllers
 
             return Forbid();
         }
-
         // ФІКС B2: Виправлено парсинг Telegram, щоб не падало на спецсимволах
         private async Task SendTelegramNotification(Post post)
         {

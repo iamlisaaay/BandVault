@@ -172,7 +172,7 @@
 <div class="container my-5 pt-4" id="news">
     <h4 class="text-uppercase text-secondary mb-5 text-center" style="letter-spacing: 4px;">Секретні матеріали</h4>
 
-    <div class="row row-cols-1 g-4 max-w-75 mx-auto" style="max-width: 800px; margin: 0 auto;">
+    <div class="row row-cols-1 g-4 max-w-75 mx-auto mb-5" style="max-width: 800px; margin: 0 auto;">
         @if (Model != null && Model.Any())
         {
             foreach (var post in Model)
@@ -181,7 +181,7 @@
                 {
                     <div class="col">
                         <div class="card bg-transparent border-secondary text-center py-5 rounded-0" style="border-style: dashed !important;">
-                            <h5 class="text-secondary meta-text mb-3">🔒 ЦЕЙ КОНТЕНТ ДОСТУПНИЙ ТІЛЬКИ ДЛЯ TIER @post.RequiredTierLevel+</h5>
+                            <h5 class="text-secondary meta-text mb-3">ЦЕЙ КОНТЕНТ ДОСТУПНИЙ ТІЛЬКИ ДЛЯ TIER @post.RequiredTierLevel+</h5>
                             @if (!isAuth)
                             {
                                 <button class="btn btn-sm btn-outline-secondary rounded-0 text-uppercase mx-auto" data-bs-toggle="modal" data-bs-target="#tierModal">Долучитися до фан-клубу</button>
@@ -220,6 +220,13 @@
                 <p class="text-secondary meta-text">НОВИН ПОКИ НЕМАЄ</p>
             </div>
         }
+    </div>
+
+    <!-- Кнопка переходу до загальної стрічки -->
+    <div class="text-center">
+        <a asp-controller="Posts" asp-action="Index" class="btn btn-outline-secondary rounded-0 text-uppercase fw-bold px-5 py-3" style="letter-spacing: 2px;">
+            ПЕРЕЙТИ ДО СТРІЧКИ УСІХ ЗАПИСІВ
+        </a>
     </div>
 </div>
 
@@ -290,7 +297,7 @@
                                                 foreach (var feature in tier.Features)
                                                 {
                                                     <li class="mb-3 text-light" style="font-size: 0.9rem;">
-                                                        <span class="text-success me-2">✓</span> @feature.Description
+                                                        <span class="text-success me-2"></span> @feature.Description
                                                     </li>
                                                 }
                                             }
@@ -321,7 +328,6 @@
 </div>
 
 @section Scripts {
-    <!-- ФІКС: Автоматичне відкриття модалки, якщо користувач прийшов за посиланням ?changeTier=1 -->
     <script>
         document.addEventListener("turbo:load", function() {
             if (new URLSearchParams(window.location.search).get('changeTier') === '1') {
@@ -333,7 +339,6 @@
             }
         });
 
-        // Для звичайного завантаження (якщо Turbo відключено)
         document.addEventListener("DOMContentLoaded", function() {
             if (new URLSearchParams(window.location.search).get('changeTier') === '1') {
                 var modalElement = document.getElementById('tierModal');

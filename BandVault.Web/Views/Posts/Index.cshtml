@@ -13,13 +13,12 @@
     <!-- Стилі для компактного відображення медіа в стрічці -->
     <style>
         .post-preview-content {
-            max-height: 320px; /* Обмежуємо загальну висоту прев'ю, щоб стрічка не була безкінечною */
+            max-height: 320px;
             overflow: hidden;
             position: relative;
             font-size: 0.95rem;
         }
 
-        /* Ефект плавного згасання внизу довгих постів */
         .post-preview-fade {
             position: absolute;
             bottom: 0;
@@ -30,7 +29,6 @@
             pointer-events: none;
         }
 
-        /* Адаптивні компактні картинки */
         .post-preview-content img {
             max-height: 120px !important;
             width: auto !important;
@@ -42,7 +40,6 @@
             display: inline-block;
         }
 
-        /* Компактні аудіоплеєри */
         .post-preview-content audio {
             height: 36px;
             max-width: 100%;
@@ -53,7 +50,6 @@
             background-color: #1a1a1a;
         }
 
-        /* Компактні відеоплеєри */
         .post-preview-content video {
             max-height: 160px;
             max-width: 100%;
@@ -62,7 +58,21 @@
             margin: 8px 0;
             display: block;
         }
+        
+        /* Стиль для кнопки оновлення (Twitter-style) */
+        #newPostsAlert {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        #newPostsAlert:hover {
+            background-color: #222 !important;
+        }
     </style>
+
+    <!-- Прихована кнопка для нових постів -->
+    <div id="newPostsAlert" class="alert bg-dark border-secondary text-white text-center rounded-0 py-2 d-none mb-4" onclick="location.reload()">
+        <span class="meta-text text-white">Є НОВІ ЗАПИСИ. НАТИСНІТЬ, ЩОБ ОНОВИТИ СТРІЧКУ &uarr;</span>
+    </div>
 
     <div class="d-flex flex-column gap-4">
         @foreach (var post in Model)
@@ -90,11 +100,8 @@
 
                     @if (ViewBag.IsAdmin || ViewBag.UserTier >= post.RequiredTierLevel || post.RequiredTierLevel == 0)
                     {
-                        <!-- Замість обрізання, рендеримо Markdown, але в рамці з обрізанням висоти -->
                         <div class="post-preview-content text-white-50">
                             @Html.Raw(Markdown.ToHtml(post.ContentMarkdown ?? "", new MarkdownPipelineBuilder().UseAdvancedExtensions().Build()))
-                            
-                            <!-- Плавне згасання внизу -->
                             <div class="post-preview-fade"></div>
                         </div>
 
@@ -123,3 +130,22 @@
         }
     </div>
 </div>
+
+@section Scripts {
+    <!-- SignalR для C11 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.12/signalr.min.js"></script>
+    <script>
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/feedHub")
+            .build();
+
+        connection.on("ReceiveNewPost", function (post) {
+            // Замість картки просто показуємо стильну кнопку оновлення
+            document.getElementById('newPostsAlert').classList.remove('d-none');
+        });
+
+        connection.start().catch(function (err) {
+            console.error(err.toString());
+        });
+    </script>
+}

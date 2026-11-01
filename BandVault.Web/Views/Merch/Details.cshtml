@@ -45,7 +45,7 @@
                         }
                     </div>
 
-                    @if (User.Identity != null && User.Identity.IsAuthenticated && Model.FanPrice.HasValue)
+                   @if (ViewBag.UserTier > 0 && Model.FanPrice.HasValue)
                     {
                         <h3 class="fw-bold text-white mb-4">
                             <s class="text-secondary fs-5">@Model.Price.ToString("0.00") $</s> 

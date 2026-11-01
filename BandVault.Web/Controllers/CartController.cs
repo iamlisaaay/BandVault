@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using BandVault.Web.Data;
+﻿using BandVault.Web.Data;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
 namespace BandVault.Web.Controllers
@@ -67,7 +68,14 @@ namespace BandVault.Web.Controllers
             decimal actualPrice = merch.Price;
             if (User.Identity != null && User.Identity.IsAuthenticated && merch.FanPrice.HasValue)
             {
-                actualPrice = merch.FanPrice.Value;
+                var user = await _context.Users.Include(u => u.SubscriptionTier).FirstOrDefaultAsync(u => u.Email == User.Identity.Name);
+                int userTier = user != null ? (user.IsAdmin ? 999 : (user.SubscriptionTier?.Level ?? 0)) : 0;
+
+                // Знижка тільки для платних (Tier > 0)
+                if (userTier > 0)
+                {
+                    actualPrice = merch.FanPrice.Value;
+                }
             }
 
             if (existingItem != null)

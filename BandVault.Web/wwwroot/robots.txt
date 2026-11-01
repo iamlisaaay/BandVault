@@ -1,0 +1,5 @@
+﻿User-agent: *
+Disallow: /Auth/
+Disallow: /SiteSettings/
+Disallow: /Orders/
+Allow: /

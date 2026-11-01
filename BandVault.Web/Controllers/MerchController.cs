@@ -21,9 +21,18 @@ namespace BandVault.Web.Controllers
         public async Task<IActionResult> Index()
         {
             var merch = await _context.MerchItems.Include(m => m.Category).ToListAsync();
+
+            // НОВЕ: Перевіряємо рівень підписки
+            int userTier = 0;
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                var user = await _context.Users.Include(u => u.SubscriptionTier).FirstOrDefaultAsync(u => u.Email == User.Identity.Name);
+                if (user != null) userTier = user.IsAdmin ? 999 : (user.SubscriptionTier?.Level ?? 0);
+            }
+            ViewBag.UserTier = userTier;
+
             return View(merch);
         }
-
         [Authorize]
         public IActionResult Create()
         {
@@ -174,6 +183,15 @@ namespace BandVault.Web.Controllers
                 .FirstOrDefaultAsync(m => m.Id == id);
 
             if (merchItem == null) return NotFound();
+
+            // НОВЕ: Перевіряємо рівень підписки
+            int userTier = 0;
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                var user = await _context.Users.Include(u => u.SubscriptionTier).FirstOrDefaultAsync(u => u.Email == User.Identity.Name);
+                if (user != null) userTier = user.IsAdmin ? 999 : (user.SubscriptionTier?.Level ?? 0);
+            }
+            ViewBag.UserTier = userTier;
 
             return View(merchItem);
         }

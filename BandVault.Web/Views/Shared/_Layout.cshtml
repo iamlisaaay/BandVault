@@ -18,14 +18,20 @@
 
     <script type="importmap"></script>
 
-    <!-- C9: Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BANDVAULT"></script>
-    <script>
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-BANDVAULT');
-    </script>
+    @inject Microsoft.Extensions.Configuration.IConfiguration Config
+    @{
+        var gaId = Config["GoogleAnalytics:MeasurementId"];
+    }
+    @if (!string.IsNullOrEmpty(gaId) && gaId != "G-XXXXXXXXXX")
+    {
+        <script async src="https://www.googletagmanager.com/gtag/js?id=@gaId"></script>
+        <script>
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '@gaId');
+        </script>
+    }
 
     <script type="module" src="https://unpkg.com/@@hotwired/turbo@8.0.4/dist/turbo.es2017-esm.js"></script>
 
@@ -102,14 +108,14 @@
                                 <a class="nav-link text-warning text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="SiteSettings" asp-action="Index" data-turbo="false">Settings</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link text-danger text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Orders" asp-action="AdminMap" data-turbo="false">Мапа 🗺️</a>
+                                <a class="nav-link text-danger text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Orders" asp-action="AdminMap" data-turbo="false">Мапа</a>
                             </li>
                         }
                     </ul>
 
                     <div class="d-flex align-items-center gap-3">
                         <a asp-controller="Cart" asp-action="Index" class="btn btn-outline-warning btn-sm rounded-0 text-uppercase fw-bold d-flex align-items-center gap-2 px-3 py-2" style="letter-spacing: 1px;" data-turbo="false">
-                            <span>🛒 Кошик</span>
+                            <span>Кошик</span>
                             @if (cartCount > 0)
                             {
                                 <span class="badge bg-warning text-dark rounded-0">@cartCount</span>
@@ -147,7 +153,7 @@
         <a href="@yt" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6 mb-0" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">YT</a>
         <a href="@ig" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6 mb-0" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">IG</a>
         <a href="@ds" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6 mb-0" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">DS</a>
-        <a href="mailto:@mail" class="text-white text-decoration-none text-center meta-text fs-5 mb-0" title="@mail">✉</a>
+        <a href="mailto:@mail" class="text-white text-decoration-none text-center meta-text fs-5 mb-0" title="@mail">MAIL</a>
     </div>
 
     <div class="container">
@@ -186,5 +192,57 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
+    <!-- ГЛОБАЛЬНОЕ УВЕДОМЛЕНИЕ ПРО НОВЫЙ ПОСТ (СТРОГИЙ ДИЗАЙН БЕЗ СМАЙЛОВ) -->
+    <div id="globalPostAlert" class="position-fixed top-0 start-50 translate-middle-x mt-4 p-3 bg-dark border border-secondary text-white shadow d-none" style="z-index: 1060; min-width: 320px; cursor: pointer; border-radius: 0;" onclick="location.href='/Posts'">
+        <div class="d-flex justify-content-between align-items-start">
+            <div class="pe-4">
+                <small class="text-secondary text-uppercase d-block mb-1" style="letter-spacing: 1px; font-size: 0.75rem;">Нова публікація</small>
+                <strong id="globalPostTitle" class="d-block text-truncate" style="max-width: 280px; font-size: 0.95rem;"></strong>
+            </div>
+            <button type="button" class="btn-close btn-close-white" style="font-size: 0.7rem; margin-top: 2px;" onclick="event.stopPropagation(); document.getElementById('globalPostAlert').classList.add('d-none');"></button>
+        </div>
+    </div>
+
+    <style>
+            @@keyframes slideDownStrict {
+                from {
+                    opacity: 0;
+                    transform: translate(-50%, -20px);
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translate(-50%, 0);
+                }
+            }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.12/signalr.min.js"></script>
+    <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                if (!window.feedHubConnection) {
+                    window.feedHubConnection = new signalR.HubConnectionBuilder()
+                        .withUrl("/feedHub")
+                        .withAutomaticReconnect()
+                        .build();
+
+                    window.feedHubConnection.on("ReceiveNewPost", function (post) {
+                        const alertEl = document.getElementById('globalPostAlert');
+                        const titleEl = document.getElementById('globalPostTitle');
+
+                        if (alertEl && titleEl) {
+                            titleEl.innerText = post.title;
+                            alertEl.classList.remove('d-none');
+                            alertEl.style.animation = "slideDownStrict 0.4s ease-out";
+                        }
+
+                        const localAlert = document.getElementById('newPostsAlert');
+                        if (localAlert) localAlert.classList.remove('d-none');
+                    });
+
+                    window.feedHubConnection.start().catch(function(err) { console.error(err); });
+                }
+            });
+    </script>
 </body>
 </html>

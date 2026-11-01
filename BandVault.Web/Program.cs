@@ -52,6 +52,7 @@ namespace BandVault.Web
             {
                 builder.Services.AddDistributedMemoryCache();
             }
+            builder.Services.AddSignalR();
             // УВІМКНЕННЯ СЕСІЙ ДЛЯ КОШИКА
             builder.Services.AddSession(options =>
             {
@@ -81,6 +82,7 @@ namespace BandVault.Web
 
             app.MapStaticAssets();
             app.MapControllers();
+            app.MapHub<BandVault.Web.Hubs.FeedHub>("/feedHub");
             app.MapControllerRoute(
                 name: "default",
                 pattern: "{controller=Home}/{action=Index}/{id?}")
