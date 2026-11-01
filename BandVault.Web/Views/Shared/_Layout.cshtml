@@ -1,28 +1,30 @@
-﻿@inject BandVault.Web.Data.ApplicationDbContext DbContext
+﻿@using System.Text.Json
+@using Microsoft.AspNetCore.Http
+@inject BandVault.Web.Data.ApplicationDbContext DbContext
 <!DOCTYPE html>
 <html lang="uk">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - BandVault.Web</title>
-    
-    <!-- ФІКС C7: SEO та OpenGraph -->
-    <meta name="description" content="Офіційний фан-клуб гурту BandVault. Ексклюзивні новини та мерч." />
+
+    <!-- C7: SEO та OpenGraph -->
+    <meta name="description" content="Офіційний фан-клуб гурту BandVault. Ексклюзивні новини, релізи та офіційний мерч." />
     <meta property="og:title" content="@(ViewData["Title"] ?? "BandVault Fanclub")" />
     <meta property="og:description" content="Офіційний фан-клуб та магазин ексклюзивного мерчу." />
-    <meta property="og:image" content="/images/avatars/default-og.jpg" />
+    <meta property="og:image" content="@($"{Context.Request.Scheme}://{Context.Request.Host}/favicon.ico")" />
     <meta property="og:type" content="website" />
     <link rel="icon" href="~/favicon.ico" />
 
     <script type="importmap"></script>
 
-    <!-- ФІКС C9: Google Analytics -->
+    <!-- C9: Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-BANDVAULT"></script>
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-BANDVAULT');
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-BANDVAULT');
     </script>
 
     <script type="module" src="https://unpkg.com/@@hotwired/turbo@8.0.4/dist/turbo.es2017-esm.js"></script>
@@ -32,6 +34,39 @@
     <link rel="stylesheet" href="~/BandVault.Web.styles.css" asp-append-version="true" />
 </head>
 <body class="bg-dark text-light">
+    @{
+        int cartCount = 0;
+        try
+        {
+            var cartJson = Context.Session.GetString("Cart");
+            if (!string.IsNullOrEmpty(cartJson))
+            {
+                using var doc = JsonDocument.Parse(cartJson);
+                foreach (var el in doc.RootElement.EnumerateArray())
+                {
+                    if (el.TryGetProperty("quantity", out var q))
+                    {
+                        cartCount += q.GetInt32();
+                    }
+                }
+            }
+        }
+        catch { }
+
+        string yt = "#", ig = "#", ds = "#", mail = "info@bandvault.com";
+        try
+        {
+            var socialSettings = DbContext.SiteSettings
+                .Where(s => s.Key.StartsWith("Social_") || s.Key == "ContactEmail")
+                .ToDictionary(s => s.Key, s => s.Value);
+            yt = socialSettings.GetValueOrDefault("Social_YouTube", "#");
+            ig = socialSettings.GetValueOrDefault("Social_Instagram", "#");
+            ds = socialSettings.GetValueOrDefault("Social_Discord", "#");
+            mail = socialSettings.GetValueOrDefault("ContactEmail", "info@bandvault.com");
+        }
+        catch { }
+    }
+
     <header>
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark bg-black border-bottom border-secondary box-shadow mb-3">
             <div class="container-fluid">
@@ -43,7 +78,7 @@
                 </button>
 
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                   <ul class="navbar-nav me-auto">
+                    <ul class="navbar-nav me-auto">
                         <li class="nav-item">
                             <a class="nav-link text-light" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
                         </li>
@@ -59,10 +94,6 @@
                             <li class="nav-item">
                                 <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Posts" asp-action="Index">Стрічка</a>
                             </li>
-                          
-                            <li class="nav-item ms-3 border-start border-secondary ps-3">
-                                <a class="nav-link text-warning text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Cart" asp-action="Index">Кошик 🛒</a>
-                            </li>
                         }
 
                         @if (User.HasClaim("IsAdmin", "true"))
@@ -70,15 +101,21 @@
                             <li class="nav-item">
                                 <a class="nav-link text-warning text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="SiteSettings" asp-action="Index" data-turbo="false">Settings</a>
                             </li>
-                           
                             <li class="nav-item">
                                 <a class="nav-link text-danger text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Orders" asp-action="AdminMap" data-turbo="false">Мапа 🗺️</a>
                             </li>
                         }
                     </ul>
 
-                    <div class="d-flex align-items-center">
-                        <li class="nav-item"><a class="nav-link text-warning text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Cart" asp-action="Index">Кошик 🛒</a></li>
+                    <div class="d-flex align-items-center gap-3">
+                        <a asp-controller="Cart" asp-action="Index" class="btn btn-outline-warning btn-sm rounded-0 text-uppercase fw-bold d-flex align-items-center gap-2 px-3 py-2" style="letter-spacing: 1px;" data-turbo="false">
+                            <span>🛒 Кошик</span>
+                            @if (cartCount > 0)
+                            {
+                                <span class="badge bg-warning text-dark rounded-0">@cartCount</span>
+                            }
+                        </a>
+
                         @if (User.Identity != null && User.Identity.IsAuthenticated)
                         {
                             var layoutAvatarUrl = User.FindFirst("AvatarUrl")?.Value;
@@ -88,16 +125,16 @@
                                 layoutAvatarUrl = $"https://via.placeholder.com/150/1a1a1a/ffffff?text={layoutDisplayName.Substring(0, 1).ToUpper()}";
                             }
 
-                            <a asp-controller="Users" asp-action="Details" class="d-flex align-items-center link-light text-decoration-none">
+                            <a asp-controller="Users" asp-action="Details" class="d-flex align-items-center link-light text-decoration-none border-start border-secondary ps-3">
                                 <img src="@layoutAvatarUrl" alt="Avatar" width="35" height="35" class="rounded-circle border border-secondary" style="object-fit: cover;">
-                                <span class="ms-2 meta-text text-uppercase fw-bold" style="font-size: 0.8rem; letter-spacing: 1px;">
+                                <span class="ms-2 meta-text text-uppercase fw-bold mb-0" style="font-size: 0.8rem; letter-spacing: 1px;">
                                     @layoutDisplayName
                                 </span>
                             </a>
                         }
                         else
                         {
-                            <a class="btn btn-outline-light btn-sm text-uppercase fw-bold rounded-0 px-4" asp-controller="Auth" asp-action="Login">УВІЙТИ</a>
+                            <a class="btn btn-outline-light btn-sm text-uppercase fw-bold rounded-0 px-4 py-2" asp-controller="Auth" asp-action="Login">УВІЙТИ</a>
                         }
                     </div>
                 </div>
@@ -105,19 +142,12 @@
         </nav>
     </header>
 
-    @{
-        var yt = DbContext.SiteSettings.FirstOrDefault(s => s.Key == "Social_YouTube")?.Value ?? "#";
-        var ig = DbContext.SiteSettings.FirstOrDefault(s => s.Key == "Social_Instagram")?.Value ?? "#";
-        var ds = DbContext.SiteSettings.FirstOrDefault(s => s.Key == "Social_Discord")?.Value ?? "#";
-        var mail = DbContext.SiteSettings.FirstOrDefault(s => s.Key == "ContactEmail")?.Value ?? "info@site.com";
-    }
-
-    <!-- ФІКС: Динамічні контакти з бази даних працюють на всіх сторінках -->
+    <!-- Бічна плашка контактів з БД -->
     <div class="position-fixed end-0 top-50 translate-middle-y bg-black border border-secondary p-3 d-none d-md-flex flex-column gap-4 shadow-lg" style="z-index: 1040; border-right: none !important; border-top-left-radius: 8px; border-bottom-left-radius: 8px;">
-        <a href="@yt" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">YT</a>
-        <a href="@ig" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">IG</a>
-        <a href="@ds" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">DS</a>
-        <a href="mailto:@mail" class="text-white text-decoration-none text-center meta-text fs-5" title="@mail">✉</a>
+        <a href="@yt" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6 mb-0" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">YT</a>
+        <a href="@ig" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6 mb-0" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">IG</a>
+        <a href="@ds" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6 mb-0" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">DS</a>
+        <a href="mailto:@mail" class="text-white text-decoration-none text-center meta-text fs-5 mb-0" title="@mail">✉</a>
     </div>
 
     <div class="container">
@@ -132,7 +162,7 @@
         </div>
     </footer>
 
-    <!-- аудіо-плеєр -->
+    <!-- Глобальний аудіо-плеєр -->
     <div id="global-player" data-turbo-permanent class="global-audio-footer bg-black border-top border-secondary shadow-lg py-2">
         <div class="container d-flex align-items-center">
             <img id="player-cover" src="https://via.placeholder.com/50/000000/ffffff?text=BV" alt="Cover" class="rounded me-3 border border-secondary" style="width: 50px; height: 50px; object-fit: cover;">

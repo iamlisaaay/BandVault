@@ -2,89 +2,230 @@
     ViewData["Title"] = "Мапа Замовлень";
 }
 
-<div class="container-fluid px-5 my-4">
-    <h2 class="text-uppercase fw-bold border-bottom border-secondary pb-3 mb-4 text-danger">МАПА ЗАМОВЛЕНЬ (АДМІН)</h2>
+<style>
+    #adminMap .leaflet-tile-pane {
+        filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+    }
+    .order-card-item {
+        cursor: pointer;
+        transition: background-color 0.2s, border-color 0.2s;
+    }
+    .order-card-item:hover {
+        background-color: #1a1a1a !important;
+        border-color: #ffc107 !important;
+    }
+</style>
 
-    <div class="row">
-        <!-- Фільтри ліворуч -->
-        <div class="col-md-3">
-            <div class="card bg-transparent border-secondary rounded-0 p-4 h-100">
-                <h5 class="text-secondary meta-text mb-4">ФІЛЬТРИ</h5>
-                <button class="btn btn-outline-light rounded-0 w-100 mb-2" onclick="filterMap('all')">УСІ ЗАМОВЛЕННЯ</button>
-                <button class="btn btn-outline-warning rounded-0 w-100 mb-2" onclick="filterMap('New')">НОВІ</button>
-                
-                <hr class="border-secondary my-4" />
-                <p class="text-white-50 small" style="line-height: 1.6;">
-                    Натискайте на маркери на мапі, щоб переглянути деталі замовлення (хто замовив, коли та сума до сплати).
-                </p>
+<div class="container-fluid px-4 my-4">
+    <div class="d-flex justify-content-between align-items-center border-bottom border-secondary pb-3 mb-4 flex-wrap gap-3">
+        <h2 class="text-uppercase fw-bold mb-0 text-warning" style="letter-spacing: 2px;">МАПА ЗАМОВЛЕНЬ ФАН-КЛУБУ</h2>
+        <div class="d-flex gap-4 meta-text mb-0">
+            <span>Показано замовлень: <strong id="visibleCount" class="text-white fs-6">0</strong></span>
+            <span>На суму: <strong id="visibleSum" class="text-success fs-6">0.00 $</strong></span>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Панель фільтрів та списку замовлень -->
+        <div class="col-lg-4">
+            <div class="card bg-transparent border-secondary rounded-0 p-3 mb-3">
+                <h6 class="text-secondary meta-text mb-3">ФІЛЬТРАЦІЯ ТОЧОК НА МАПІ</h6>
+
+                <div class="mb-2">
+                    <label class="form-label text-secondary meta-text mb-1">СТАТУС ЗАМОВЛЕННЯ</label>
+                    <select id="statusFilter" class="form-select form-select-sm bg-dark text-white border-secondary rounded-0" onchange="applyFilters()">
+                        <option value="all">Усі статуси</option>
+                        <option value="New">🟡 Нові (New)</option>
+                        <option value="Shipped">🔵 Відправлені (Shipped)</option>
+                        <option value="Completed">🟢 Виконані (Completed)</option>
+                    </select>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label text-secondary meta-text mb-1">СПОСІБ ОПЛАТИ</label>
+                    <select id="paymentFilter" class="form-select form-select-sm bg-dark text-white border-secondary rounded-0" onchange="applyFilters()">
+                        <option value="all">Усі способи оплати</option>
+                        <option value="Готівкою кур'єру">Готівкою при отриманні</option>
+                        <option value="Карткою кур'єру">Карткою при отриманні</option>
+                        <option value="Переказ на IBAN">Переказ на IBAN</option>
+                    </select>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-8">
+                        <label class="form-label text-secondary meta-text mb-1">ПОШУК (ІМ'Я / АДРЕСА)</label>
+                        <input type="text" id="searchFilter" class="form-control form-control-sm bg-dark text-white border-secondary rounded-0" placeholder="Київ, Олена..." oninput="applyFilters()" />
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label text-secondary meta-text mb-1">МІН. СУМА ($)</label>
+                        <input type="number" id="minTotalFilter" min="0" step="1" class="form-control form-control-sm bg-dark text-white border-secondary rounded-0" placeholder="0" oninput="applyFilters()" />
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-0 w-100 text-uppercase" onclick="resetFilters()">
+                    Скинути фільтри
+                </button>
             </div>
+
+            <!-- Динамічний список відфільтрованих замовлень -->
+            <div id="ordersList" class="d-flex flex-column gap-2 pe-1" style="max-height: 42vh; overflow-y: auto;"></div>
         </div>
 
-        <!-- Сама Мапа -->
-        <div class="col-md-9">
-            <!-- CSS-фільтр робить безкоштовну світлу мапу темною -->
-            <div id="adminMap" class="border border-secondary" style="height: 70vh; width: 100%; background: #111; filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);"></div>
+        <!-- Інтерактивна Мапа -->
+        <div class="col-lg-8">
+            <div id="adminMap" class="border border-secondary" style="height: 75vh; width: 100%; background: #111;"></div>
         </div>
     </div>
 </div>
 
 @section Scripts {
-    <!-- Підключення бібліотеки мап Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        var orders = @Html.Raw(ViewBag.OrdersJson ?? "[]");
-        var map = L.map('adminMap').setView([50.4501, 30.5234], 5); // Дефолт центр - Київ/Європа
+        const orders = @Html.Raw(ViewBag.OrdersJson ?? "[]");
+        const map = L.map('adminMap').setView([49.0, 31.4], 6);
 
-        // Використовуємо надійний безкоштовний провайдер OpenStreetMap
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; OpenStreetMap'
         }).addTo(map);
 
-        var markers = [];
+        let markersMap = {};
 
-        function renderMarkers(filterStatus) {
-            // Очищаємо старі маркери
-            markers.forEach(m => map.removeLayer(m));
-            markers = [];
-
-            // Фільтруємо і малюємо нові
-            orders.forEach(order => {
-                if (filterStatus === 'all' || order.status === filterStatus) {
-                    var markerColor = order.status === 'New' ? '#ffc107' : '#0dcaf0';
-                    
-                    // Оскільки вся мапа інвертована через CSS, нам треба інвертувати кольори маркера назад
-                    var customIcon = L.divIcon({
-                        className: 'custom-div-icon',
-                        html: `<div style="background-color:${markerColor}; width:16px; height:16px; border-radius:50%; border:2px solid #000; filter: invert(100%) hue-rotate(180deg);"></div>`,
-                        iconSize: [16, 16]
-                    });
-
-                    var marker = L.marker([order.lat, order.lng], { icon: customIcon }).addTo(map);
-                    
-                    // Спливаюче вікно при кліку (теж інвертуємо назад, щоб текст читався нормально)
-                    marker.bindPopup(`
-                        <div class="text-dark" style="filter: invert(100%) hue-rotate(180deg); background: #fff; padding: 5px;">
-                            <b>Замовлення #${order.id}</b><br>
-                            👤 Клієнт: ${order.user}<br>
-                            📅 Дата: ${order.date}<br>
-                            📍 Адреса: ${order.address}<br>
-                            💰 Сума: <strong style="color: #198754;">${order.total.toFixed(2)}$</strong>
-                        </div>
-                    `);
-                    markers.push(marker);
-                }
-            });
+        function getStatusColor(status) {
+            if (status === 'Completed') return '#198754';
+            if (status === 'Shipped') return '#0dcaf0';
+            return '#ffc107';
         }
 
-        // Початкове малювання всіх маркерів
-        renderMarkers('all');
+        function getStatusBadge(status) {
+            if (status === 'Completed') return '<span class="badge bg-success rounded-0">ВИКОНАНО</span>';
+            if (status === 'Shipped') return '<span class="badge bg-info text-dark rounded-0">ВІДПРАВЛЕНО</span>';
+            return '<span class="badge bg-warning text-dark rounded-0">НОВЕ</span>';
+        }
 
-        // Функція для фільтрації при натисканні кнопок
-        window.filterMap = function(status) {
-            renderMarkers(status);
+        function buildPopupHtml(order) {
+            return `
+                <div style="min-width: 230px; font-size: 0.88rem;">
+                    <div class="fw-bold border-bottom pb-1 mb-2">Замовлення #${order.id} (${order.date})</div>
+                    <div>👤 <b>Клієнт:</b> ${order.user}</div>
+                    <div>📞 <b>Тел:</b> ${order.phone}</div>
+                    <div>📍 <b>Адреса:</b> ${order.address}</div>
+                    <div>📦 <b>Товари:</b> ${order.items || '-'}</div>
+                    <div>💳 <b>Оплата:</b> ${order.paymentMethod}</div>
+                    <div class="mt-1">💰 <b>Сума:</b> <strong style="color:#198754;">${Number(order.total).toFixed(2)} $</strong></div>
+                    <hr class="my-2"/>
+                    <label class="small fw-bold d-block mb-1">Змінити статус:</label>
+                    <div class="d-flex gap-1">
+                        <select id="statusSelect_${order.id}" class="form-select form-select-sm">
+                            <option value="New" ${order.status === 'New' ? 'selected' : ''}>Нове (New)</option>
+                            <option value="Shipped" ${order.status === 'Shipped' ? 'selected' : ''}>Відправлено (Shipped)</option>
+                            <option value="Completed" ${order.status === 'Completed' ? 'selected' : ''}>Виконано (Completed)</option>
+                        </select>
+                        <button type="button" class="btn btn-sm btn-dark" onclick="changeOrderStatus(${order.id})">OK</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function applyFilters() {
+            const st = document.getElementById('statusFilter').value;
+            const pay = document.getElementById('paymentFilter').value;
+            const q = document.getElementById('searchFilter').value.trim().toLowerCase();
+            const minTotal = parseFloat(document.getElementById('minTotalFilter').value) || 0;
+
+            Object.values(markersMap).forEach(m => map.removeLayer(m));
+            markersMap = {};
+
+            const filtered = orders.filter(o => {
+                if (st !== 'all' && o.status !== st) return false;
+                if (pay !== 'all' && o.paymentMethod !== pay) return false;
+                if (Number(o.total) < minTotal) return false;
+                if (q) {
+                    const hay = `${o.user} ${o.address} ${o.phone} ${o.items}`.toLowerCase();
+                    if (!hay.includes(q)) return false;
+                }
+                return true;
+            });
+
+            const listEl = document.getElementById('ordersList');
+            listEl.innerHTML = '';
+            const bounds = [];
+            let sum = 0;
+
+            filtered.forEach(order => {
+                sum += Number(order.total);
+                const color = getStatusColor(order.status);
+
+                const icon = L.divIcon({
+                    className: 'order-pin',
+                    html: `<div style="background-color:${color}; width:18px; height:18px; border-radius:50%; border:2px solid #000; box-shadow:0 0 6px rgba(0,0,0,0.8);"></div>`,
+                    iconSize: [18, 18],
+                    iconAnchor: [9, 9]
+                });
+
+                const marker = L.marker([order.lat, order.lng], { icon }).addTo(map);
+                marker.bindPopup(buildPopupHtml(order));
+                markersMap[order.id] = marker;
+                bounds.push([order.lat, order.lng]);
+
+                const card = document.createElement('div');
+                card.className = 'card bg-black border-secondary rounded-0 p-2 text-white order-card-item';
+                card.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <strong class="small">#${order.id} — ${order.user}</strong>
+                        ${getStatusBadge(order.status)}
+                    </div>
+                    <div class="text-secondary small text-truncate">📍 ${order.address}</div>
+                    <div class="d-flex justify-content-between align-items-center mt-1 small">
+                        <span class="text-white-50">${order.paymentMethod}</span>
+                        <strong class="text-success">${Number(order.total).toFixed(2)} $</strong>
+                    </div>
+                `;
+                card.addEventListener('click', () => {
+                    map.flyTo([order.lat, order.lng], 14, { duration: 0.8 });
+                    marker.openPopup();
+                });
+                listEl.appendChild(card);
+            });
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = '<div class="text-center text-secondary meta-text py-4 border border-secondary">ЗАМОВЛЕНЬ ЗА ФІЛЬТРОМ НЕ ЗНАЙДЕНО</div>';
+            } else if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+            }
+
+            document.getElementById('visibleCount').innerText = filtered.length;
+            document.getElementById('visibleSum').innerText = sum.toFixed(2) + ' $';
+        }
+
+        window.resetFilters = function () {
+            document.getElementById('statusFilter').value = 'all';
+            document.getElementById('paymentFilter').value = 'all';
+            document.getElementById('searchFilter').value = '';
+            document.getElementById('minTotalFilter').value = '';
+            applyFilters();
         };
+
+        window.changeOrderStatus = async function (orderId) {
+            const newStatus = document.getElementById(`statusSelect_${orderId}`).value;
+            try {
+                const res = await fetch('/Orders/UpdateStatus', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId: orderId, status: newStatus })
+                });
+                if (res.ok) {
+                    const target = orders.find(o => o.id === orderId);
+                    if (target) target.status = newStatus;
+                    applyFilters();
+                }
+            } catch (e) {
+                alert('Помилка збереження статусу');
+            }
+        };
+
+        applyFilters();
     </script>
 }

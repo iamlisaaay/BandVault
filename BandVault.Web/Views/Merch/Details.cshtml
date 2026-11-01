@@ -5,7 +5,6 @@
 }
 
 <div class="container my-5" style="max-width: 1000px;">
-    <!-- Кнопка назад -->
     <div class="mb-4">
         <a asp-action="Index" class="btn btn-sm btn-outline-secondary rounded-0 text-uppercase fw-bold" style="letter-spacing: 1px;">
             &larr; Назад до каталогу
@@ -14,7 +13,6 @@
 
     <div class="card bg-transparent border-secondary text-white rounded-0">
         <div class="row g-0">
-            <!-- Ліва колонка: Фото -->
             <div class="col-md-5 border-end border-secondary">
                 @if (!string.IsNullOrEmpty(Model.ImageUrl))
                 {
@@ -28,23 +26,22 @@
                 }
             </div>
             
-            <!-- Права колонка: Інформація -->
             <div class="col-md-7">
                 <div class="card-body p-4 p-lg-5 d-flex flex-column h-100">
                     <h2 class="fw-bold text-uppercase mb-3" style="letter-spacing: 1px;">@Model.Title</h2>
                     
                     <div class="mb-4 d-flex gap-2">
-                        <span class="badge border border-secondary text-secondary rounded-0 meta-text p-2">
+                        <span class="badge border border-secondary text-secondary rounded-0 meta-text p-2 mb-0">
                             @(Model.Category?.Name ?? "БЕЗ КАТЕГОРІЇ")
                         </span>
                         
                         @if (Model.StockQuantity > 0)
                         {
-                            <span class="badge bg-success rounded-0 meta-text p-2">В НАЯВНОСТІ: @Model.StockQuantity ШТ.</span>
+                            <span class="badge bg-success rounded-0 meta-text p-2 mb-0">В НАЯВНОСТІ: @Model.StockQuantity ШТ.</span>
                         }
                         else
                         {
-                            <span class="badge bg-danger rounded-0 meta-text p-2">НЕМАЄ В НАЯВНОСТІ</span>
+                            <span class="badge bg-danger rounded-0 meta-text p-2 mb-0">НЕМАЄ В НАЯВНОСТІ</span>
                         }
                     </div>
 
@@ -60,29 +57,30 @@
                         <h3 class="fw-bold text-white mb-4">@Model.Price.ToString("0.00") $</h3>
                     }
 
-                    <div class="mb-5 flex-grow-1">
+                    <div class="mb-4 flex-grow-1">
                         <h6 class="text-uppercase meta-text text-secondary border-bottom border-secondary pb-2 mb-3">Опис товару</h6>
                         <p class="card-text text-light" style="white-space: pre-wrap; line-height: 1.6;">@Model.Description</p>
                     </div>
-                    <!-- ФОРМА КУПІВЛІ -->
-                    <form asp-controller="Cart" asp-action="AddToCart" method="post" class="mb-5 flex-grow-1" data-turbo="false">
-                        <input type="hidden" name="merchId" value="@Model.Id" />
-                        
-                        <h6 class="text-uppercase meta-text text-secondary border-bottom border-secondary pb-2 mb-3">Опис товару</h6>
-                        <p class="card-text text-light mb-4" style="white-space: pre-wrap; line-height: 1.6;">@Model.Description</p>
-                        
-                        @if (Model.StockQuantity > 0)
-                        {
+
+                    @if (Model.StockQuantity > 0)
+                    {
+                        <form asp-controller="Cart" asp-action="AddToCart" method="post" class="mb-4" data-turbo="false">
+                            <input type="hidden" name="merchId" value="@Model.Id" />
                             <div class="d-flex align-items-center gap-3">
-                                <input type="number" name="quantity" value="1" min="1" max="@Model.StockQuantity" class="form-control bg-dark text-white border-secondary rounded-0 text-center" style="width: 80px;" />
+                                <input type="number" name="quantity" value="1" min="1" max="@Model.StockQuantity" class="form-control bg-dark text-white border-secondary rounded-0 text-center fw-bold py-2" style="width: 90px;" />
                                 <button type="submit" class="btn btn-light rounded-0 text-uppercase fw-bold px-4 py-2 flex-grow-1" style="letter-spacing: 2px;">
                                     У КОШИК 🛒
                                 </button>
                             </div>
-                        }
-                    </form>
+                        </form>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-outline-secondary rounded-0 text-uppercase fw-bold py-2 mb-4" disabled>
+                            РОЗПРОДАНО
+                        </button>
+                    }
 
-                    <!-- Кнопки дій -->
                     @if (User.HasClaim("IsAdmin", "true"))
                     {
                         <div class="d-flex gap-3 mt-auto pt-4 border-top border-secondary">

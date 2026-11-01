@@ -1,39 +1,57 @@
 ﻿@model IEnumerable<BandVault.Web.Controllers.CartController.CartItemDto>
 
+@{
+    ViewData["Title"] = "Оформлення замовлення";
+}
+
+<style>
+    /* Темна тема суто для тайлів мапи — маркери й текст залишаються чіткими */
+    #map .leaflet-tile-pane {
+        filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+    }
+</style>
+
 <div class="container my-5 w-75">
     <h2 class="text-uppercase fw-bold border-bottom border-secondary pb-3 mb-4">ОФОРМЛЕННЯ ЗАМОВЛЕННЯ</h2>
 
     <div class="row g-5">
         <div class="col-md-7">
             <form asp-action="PlaceOrder" method="post" id="orderForm" data-turbo="false">
-                
-                <h5 class="text-secondary meta-text mb-4">1. КОНТАКТНІ ДАНІ</h5>
+                @Html.AntiForgeryToken()
+
+                <h5 class="text-secondary meta-text mb-4">1. КОНТАКТНІ ДАНІ ОТРИМУВАЧА</h5>
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <label class="form-label text-secondary meta-text">ІМ'Я ТА ПРІЗВИЩЕ</label>
-                        <input type="text" name="customerName" class="form-control bg-dark text-white border-secondary rounded-0" required />
+                        <input type="text" name="customerName" value="@ViewBag.DefaultName" class="form-control bg-dark text-white border-secondary rounded-0" required />
                     </div>
                     <div class="col-md-6">
                         <label class="form-label text-secondary meta-text">НОМЕР ТЕЛЕФОНУ</label>
-                        <input type="tel" name="customerPhone" class="form-control bg-dark text-white border-secondary rounded-0" required placeholder="+380..." />
+                        <input type="tel" name="customerPhone" value="@ViewBag.DefaultPhone" class="form-control bg-dark text-white border-secondary rounded-0" required placeholder="+380..." />
                     </div>
                 </div>
                 <div class="mb-5">
                     <label class="form-label text-secondary meta-text">EMAIL ДЛЯ КВИТАНЦІЇ</label>
-                    <input type="email" name="customerEmail" value="@User.Identity.Name" class="form-control bg-dark text-white border-secondary rounded-0" required />
+                    <input type="email" name="customerEmail" value="@ViewBag.DefaultEmail" class="form-control bg-dark text-white border-secondary rounded-0" required />
                 </div>
 
                 <h5 class="text-secondary meta-text mb-4">2. ДОСТАВКА ТА ОПЛАТА</h5>
-                
-                <div class="mb-3">
-                    <label class="form-label text-secondary meta-text">ТОЧНА АДРЕСА АБО № ВІДДІЛЕННЯ</label>
-                    <input type="text" id="addressInput" name="address" class="form-control bg-dark text-white border-secondary rounded-0" required placeholder="Наприклад: м. Київ, вул. Хрещатик 1, кв 5" />
+
+                <div class="mb-2">
+                    <label class="form-label text-secondary meta-text">МІСТО, АДРЕСА АБО ВІДДІЛЕННЯ ПОШТИ</label>
+                    <div class="input-group">
+                        <input type="text" id="addressInput" name="address" class="form-control bg-dark text-white border-secondary rounded-0" required placeholder="Наприклад: Львів, площа Ринок 1" />
+                        <button type="button" id="geocodeBtn" class="btn btn-outline-warning rounded-0 text-uppercase fw-bold px-3" style="font-size: 0.8rem;">
+                            Знайти на мапі 📍
+                        </button>
+                    </div>
+                    <small id="coordsStatus" class="text-secondary d-block mt-1" style="font-size: 0.78rem;">
+                        Введіть адресу та натисніть «Знайти на мапі» або клікніть точкою безпосередньо на мапі нижче.
+                    </small>
                 </div>
 
-                <!-- Мапа для опціонального вибору координат (темна через CSS) -->
-                <p class="text-secondary meta-text mb-2 mt-4"><small>*Можете додатково вказати точку на мапі для кур'єра:</small></p>
-                <div id="map" class="border border-secondary mb-4" style="height: 250px; width: 100%; background: #111; filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);"></div>
-                
+                <div id="map" class="border border-secondary my-3" style="height: 300px; width: 100%; background: #111;"></div>
+
                 <input type="hidden" id="latInput" name="lat" value="50.4501" />
                 <input type="hidden" id="lngInput" name="lng" value="30.5234" />
 
@@ -46,8 +64,8 @@
                     </select>
                 </div>
 
-                <button type="submit" class="btn btn-light w-100 rounded-0 text-uppercase fw-bold py-3 mt-3" style="letter-spacing: 2px;">
-                    ОФОРМИТИ ЗАМОВЛЕННЯ
+                <button type="submit" id="submitOrderBtn" class="btn btn-light w-100 rounded-0 text-uppercase fw-bold py-3 mt-2" style="letter-spacing: 2px;">
+                    ПІДТВЕРДИТИ ЗАМОВЛЕННЯ
                 </button>
             </form>
         </div>
@@ -55,7 +73,7 @@
         <div class="col-md-5">
             <div class="card bg-transparent border-secondary rounded-0 p-4 sticky-top" style="top: 20px;">
                 <h5 class="text-secondary meta-text mb-4 text-center">ВАШЕ ЗАМОВЛЕННЯ</h5>
-                
+
                 @foreach (var item in Model)
                 {
                     <div class="d-flex justify-content-between mb-3 pb-2 border-bottom border-secondary">
@@ -63,7 +81,7 @@
                         <span class="text-success fw-bold text-nowrap">@((item.Price * item.Quantity).ToString("0.00")) $</span>
                     </div>
                 }
-                
+
                 <div class="d-flex justify-content-between mt-4">
                     <h5 class="text-white fw-bold mb-0">ДО СПЛАТИ:</h5>
                     <h4 class="text-white fw-bold mb-0">@ViewBag.Total.ToString("0.00") $</h4>
@@ -78,30 +96,110 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        var map = L.map('map').setView([50.4501, 30.5234], 11);
+        const map = L.map('map').setView([50.4501, 30.5234], 11);
 
-        // Стандартний OSM (Крим - це Україна)
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; OpenStreetMap'
         }).addTo(map);
 
-        var marker;
+        let marker = null;
+        let coordsPicked = false;
 
-        map.on('click', function(e) {
+        const customIcon = L.divIcon({
+            className: 'custom-pin',
+            html: '<div style="background-color:#ffc107; width:18px; height:18px; border-radius:50%; border:3px solid #000; box-shadow: 0 0 8px rgba(255,193,7,0.9);"></div>',
+            iconSize: [18, 18],
+            iconAnchor: [9, 9]
+        });
+
+        function setPoint(lat, lng, statusText) {
             if (marker) map.removeLayer(marker);
-            
-            // Інвертуємо маркер назад, бо мапа інвертована через CSS
-            var customIcon = L.divIcon({
-                className: 'custom-div-icon',
-                html: `<div style="background-color:#0dcaf0; width:15px; height:15px; border-radius:50%; border:2px solid #000; filter: invert(100%) hue-rotate(180deg);"></div>`,
-                iconSize: [15, 15]
-            });
-            
-            marker = L.marker(e.latlng, { icon: customIcon }).addTo(map);
-            
-            document.getElementById('latInput').value = e.latlng.lat;
-            document.getElementById('lngInput').value = e.latlng.lng;
+            marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
+            document.getElementById('latInput').value = Number(lat).toFixed(6);
+            document.getElementById('lngInput').value = Number(lng).toFixed(6);
+            coordsPicked = true;
+
+            const statusEl = document.getElementById('coordsStatus');
+            statusEl.className = 'text-success d-block mt-1';
+            statusEl.innerText = statusText || `✓ Точку збережено (${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)})`;
+        }
+
+        // Клік по мапі: ставить точку і підтягує вулицю, якщо поле адреси порожнє
+        map.on('click', function (e) {
+            const { lat, lng } = e.latlng;
+            setPoint(lat, lng);
+
+            const addrInput = document.getElementById('addressInput');
+            if (!addrInput.value.trim()) {
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&accept-language=uk&lat=${lat}&lon=${lng}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data && data.display_name && !addrInput.value.trim()) {
+                            addrInput.value = data.display_name;
+                        }
+                    })
+                    .catch(() => {});
+            }
+        });
+
+        // Геокодинг за введеною адресою
+        async function geocodeAddress(query) {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=uk&q=${encodeURIComponent(query)}`;
+            const res = await fetch(url);
+            const results = await res.json();
+            if (results && results.length > 0) {
+                const lat = parseFloat(results[0].lat);
+                const lon = parseFloat(results[0].lon);
+                map.flyTo([lat, lon], 15);
+                setPoint(lat, lon, `✓ Знайдено на мапі: ${results[0].display_name}`);
+                return true;
+            }
+            return false;
+        }
+
+        document.getElementById('geocodeBtn').addEventListener('click', async function () {
+            const query = document.getElementById('addressInput').value.trim();
+            const statusEl = document.getElementById('coordsStatus');
+            if (!query) {
+                statusEl.className = 'text-warning d-block mt-1';
+                statusEl.innerText = 'Спочатку введіть місто та вулицю в поле вище.';
+                return;
+            }
+            statusEl.className = 'text-info d-block mt-1';
+            statusEl.innerText = 'Шукаємо адресу на мапі...';
+            try {
+                const ok = await geocodeAddress(query);
+                if (!ok) {
+                    statusEl.className = 'text-warning d-block mt-1';
+                    statusEl.innerText = 'Точну адресу не знайдено автоматично — клікніть потрібне місце на мапі мишкою.';
+                }
+            } catch {
+                statusEl.className = 'text-warning d-block mt-1';
+                statusEl.innerText = 'Сервіс пошуку тимчасово недоступний — оберіть точку кліком по мапі.';
+            }
+        });
+
+        // Якщо користувач вписав адресу і одразу натиснув "Підтвердити", пробуємо автоматично визначити її координати
+        document.getElementById('orderForm').addEventListener('submit', async function (e) {
+            if (coordsPicked) return;
+            const query = document.getElementById('addressInput').value.trim();
+            if (!query) return;
+
+            e.preventDefault();
+            const btn = document.getElementById('submitOrderBtn');
+            btn.disabled = true;
+            btn.innerText = 'ВИЗНАЧАЄМО КООРДИНАТИ...';
+
+            try {
+                await Promise.race([
+                    geocodeAddress(query),
+                    new Promise(resolve => setTimeout(resolve, 1500))
+                ]);
+            } catch { }
+
+            coordsPicked = true;
+            this.submit();
         });
     </script>
 }

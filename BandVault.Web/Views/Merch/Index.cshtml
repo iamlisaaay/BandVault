@@ -8,14 +8,12 @@
         <h3 class="section-title border-0 mb-0 pb-0">Каталог мерчу</h3>
         @if (User.HasClaim("IsAdmin", "true"))
         {
-            <!-- ФІКС: data-turbo="false" щоб Select2 коректно завантажився -->
             <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold" style="letter-spacing: 1px;" data-turbo="false">+ Додати мерч</a>
         }
     </div>
 
     <div class="position-relative mb-5 w-50 mx-auto">
         <input type="text" id="merchSearchInput" class="form-control bg-transparent border-secondary text-white rounded-0" placeholder="ПОШУК ТОВАРУ (ВІД 3 СИМВОЛІВ)..." autocomplete="off" style="letter-spacing: 1px; font-size: 0.9rem;" />
-        
         <ul id="searchResults" class="list-group d-none position-absolute w-100 mt-1 rounded-0 border border-secondary" style="z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.5); background-color: #1a1a1a;"></ul>
     </div>
 
@@ -50,8 +48,8 @@
                             <p class="card-text mb-1 meta-text">ЦІНА: @item.Price.ToString("0.00") $</p>
                         }
                         <p class="card-text meta-text">
-                            ЗАЛИШОК: 
-                            @if(item.StockQuantity > 0)
+                            ЗАЛИШОК:
+                            @if (item.StockQuantity > 0)
                             {
                                 <span class="text-white">@item.StockQuantity ШТ.</span>
                             }
@@ -63,9 +61,22 @@
                     </div>
 
                     <div class="card-footer bg-transparent border-0 pt-0 d-flex flex-column gap-2">
-                        <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-outline-light w-100 rounded-0 text-uppercase" style="font-size: 0.8rem; letter-spacing: 1px;">
-                            Деталі
-                        </a>
+                        <div class="d-flex gap-2">
+                            <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-outline-light flex-grow-1 rounded-0 text-uppercase" style="font-size: 0.8rem; letter-spacing: 1px;">
+                                Деталі
+                            </a>
+                            @if (item.StockQuantity > 0)
+                            {
+                                <form asp-controller="Cart" asp-action="AddToCart" method="post" data-turbo="false">
+                                    <input type="hidden" name="merchId" value="@item.Id" />
+                                    <input type="hidden" name="quantity" value="1" />
+                                    <button type="submit" class="btn btn-warning text-dark fw-bold rounded-0 px-3" style="font-size: 0.8rem;" title="Додати у кошик">
+                                        🛒+
+                                    </button>
+                                </form>
+                            }
+                        </div>
+
                         @if (User.HasClaim("IsAdmin", "true"))
                         {
                             <div class="d-flex gap-2">
@@ -91,10 +102,9 @@
             display: block !important;
             background-color: #1a1a1a !important;
         }
-
-            #searchResults.d-none { display: none !important; }
+        #searchResults.d-none { display: none !important; }
         .search-result-item { cursor: pointer; transition: background-color 0.2s; color: white !important; }
-            .search-result-item:hover { background-color: #333 !important; }
+        .search-result-item:hover { background-color: #333 !important; }
         #searchResults::-webkit-scrollbar { width: 8px; }
         #searchResults::-webkit-scrollbar-track { background: #1a1a1a; }
         #searchResults::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
@@ -106,7 +116,6 @@
             const searchResults = document.getElementById('searchResults');
 
             if (!searchInput || !searchResults) return;
-
             if (searchInput.dataset.initialized === "true") return;
             searchInput.dataset.initialized = "true";
 
@@ -115,12 +124,8 @@
 
             searchInput.addEventListener('input', function () {
                 const query = searchInput.value.trim();
-
                 clearTimeout(debounceTimer);
-
-                if (currentController) {
-                    currentController.abort();
-                }
+                if (currentController) currentController.abort();
 
                 if (query.length < 3) {
                     searchResults.classList.add('d-none');
@@ -145,11 +150,9 @@
 
                             if (json.data && json.data.length > 0) {
                                 searchResults.classList.remove('d-none');
-
                                 json.data.forEach(item => {
                                     const li = document.createElement('li');
                                     li.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center bg-dark border-bottom border-secondary text-white rounded-0 py-3 search-result-item';
-
                                     const price = item.price ? item.price.toFixed(2) : '0.00';
                                     const imageUrl = item.imageUrl || 'https://via.placeholder.com/50/111/fff?text=BV';
 
@@ -167,7 +170,6 @@
                                         e.preventDefault();
                                         window.location.href = `/Merch/Details/${item.id}`;
                                     });
-
                                     searchResults.appendChild(li);
                                 });
                             } else {
@@ -204,14 +206,12 @@
 
         document.addEventListener("turbo:load", initMerchSearch);
 
-        const observer = new MutationObserver(function(mutations) {
+        const observer = new MutationObserver(function() {
             if (document.getElementById('merchSearchInput') &&
                 document.getElementById('merchSearchInput').dataset.initialized !== "true") {
                 initMerchSearch();
             }
         });
-
         observer.observe(document.body, { childList: true, subtree: true });
-
     </script>
 }

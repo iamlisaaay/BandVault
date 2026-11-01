@@ -1,13 +1,32 @@
 ﻿using BandVault.Web.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration; 
+using Microsoft.Extensions.Configuration;
+
 namespace BandVault.Web.Data
 {
     public static class DbInitializer
     {
         public static async Task SeedDataAsync(ApplicationDbContext context, IConfiguration config)
         {
-            await context.Database.MigrateAsync();
+            if (context.Database.IsRelational())
+            {
+                await context.Database.MigrateAsync();
+            }
+            else
+            {
+                await context.Database.EnsureCreatedAsync();
+            }
+
+            // Статуси замовлень для мапи C8
+            var existingStatuses = await context.OrderStatuses.Select(s => s.Name).ToListAsync();
+            foreach (var statusName in new[] { "New", "Shipped", "Completed" })
+            {
+                if (!existingStatuses.Contains(statusName))
+                {
+                    context.OrderStatuses.Add(new OrderStatus { Name = statusName });
+                }
+            }
+            await context.SaveChangesAsync();
 
             if (!await context.SiteSettings.AnyAsync())
             {
@@ -25,80 +44,52 @@ namespace BandVault.Web.Data
                 await context.SaveChangesAsync();
             }
 
-            // 2. Додаємо Тіри (Рівні підписки)
             if (!await context.SubscriptionTiers.AnyAsync())
             {
                 var tiers = new List<SubscriptionTier>
                 {
-                    new SubscriptionTier
-                    {
-                        Name = "FAN",
-                        Level = 1,
-                        Price = 5.00m,
-                        IsRecommended = false
-                    },
-                    new SubscriptionTier
-                    {
-                        Name = "INSIDER",
-                        Level = 2,
-                        Price = 15.00m,
-                        IsRecommended = true
-                    },
-                    new SubscriptionTier
-                    {
-                        Name = "VIP CULT",
-                        Level = 3,
-                        Price = 50.00m,
-                        IsRecommended = false
-                    }
+                    new SubscriptionTier { Name = "FAN", Level = 1, Price = 5.00m, IsRecommended = false },
+                    new SubscriptionTier { Name = "INSIDER", Level = 2, Price = 15.00m, IsRecommended = true },
+                    new SubscriptionTier { Name = "VIP CULT", Level = 3, Price = 50.00m, IsRecommended = false }
                 };
 
                 context.SubscriptionTiers.AddRange(tiers);
-                await context.SaveChangesAsync(); // Зберігаємо, щоб отримати їхні ID
+                await context.SaveChangesAsync();
 
-                // 3. Додаємо Фічі для цих Тірів
                 context.TierFeatures.AddRange(
-                    // Фічі для FAN (Level 1)
                     new TierFeature { TierId = tiers[0].Id, Description = "Доступ до закритих новин" },
                     new TierFeature { TierId = tiers[0].Id, Description = "Участь у розіграшах мерчу" },
-
- 
                     new TierFeature { TierId = tiers[1].Id, Description = "Доступ до закритих новин" },
                     new TierFeature { TierId = tiers[1].Id, Description = "Ранній доступ до квитків" },
                     new TierFeature { TierId = tiers[1].Id, Description = "Ексклюзивні демо-записи" },
-
-                    // Фічі для VIP CULT (Level 3)
                     new TierFeature { TierId = tiers[2].Id, Description = "Всі переваги попередніх рівнів" },
                     new TierFeature { TierId = tiers[2].Id, Description = "Щомісячний дзвінок з гуртом" },
                     new TierFeature { TierId = tiers[2].Id, Description = "Безкоштовна VIP-футболка щороку" }
                 );
                 await context.SaveChangesAsync();
             }
-            // 1. Читаємо пошту адміна з appsettings.json
+
             string superAdminEmail = config["AdminSettings:SuperAdminEmail"] ?? "admin@bandvault.com";
 
-                // 2. Якщо такого користувача ще немає - створюємо
-                if (!await context.Users.AnyAsync(u => u.Email == superAdminEmail))
+            if (!await context.Users.AnyAsync(u => u.Email == superAdminEmail))
+            {
+                var highestTier = await context.SubscriptionTiers
+                    .OrderByDescending(t => t.Level)
+                    .FirstOrDefaultAsync();
+
+                int tierId = highestTier != null ? highestTier.Id : 0;
+
+                var superAdmin = new User
                 {
-                    // Шукаємо найвищий рівень підписки (наприклад, Tier 4)
-                    var highestTier = await context.SubscriptionTiers
-                        .OrderByDescending(t => t.Level)
-                        .FirstOrDefaultAsync();
+                    Email = superAdminEmail,
+                    DisplayName = superAdminEmail.Split('@')[0],
+                    IsAdmin = true,
+                    CreatedAt = DateTime.UtcNow,
+                    SubscriptionTierId = tierId
+                };
 
-                    int tierId = highestTier != null ? highestTier.Id : 0;
-
-                    var superAdmin = new User
-                    {
-                        Email = superAdminEmail,
-                        DisplayName = superAdminEmail.Split('@')[0],
-                        IsAdmin = true,
-                        CreatedAt = DateTime.UtcNow,
-                        SubscriptionTierId = tierId
-                    };
-
-                    context.Users.Add(superAdmin);
-
-                    await context.SaveChangesAsync();
+                context.Users.Add(superAdmin);
+                await context.SaveChangesAsync();
             }
         }
     }
