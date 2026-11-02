@@ -71,5 +71,27 @@ namespace BandVault.Web.Controllers
 
             return View(adminPosts);
         }
+
+        // C6: підписка на новини з лендінгу
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Subscribe(string email)
+        {
+            email = (email ?? "").Trim().ToLowerInvariant();
+            if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(email) || email.Length > 256)
+            {
+                TempData["NewsletterMessage"] = "Вкажіть коректний email.";
+            }
+            else
+            {
+                if (!await _context.NewsletterSubscribers.AnyAsync(s => s.Email == email))
+                {
+                    _context.NewsletterSubscribers.Add(new NewsletterSubscriber { Email = email });
+                    await _context.SaveChangesAsync();
+                }
+                TempData["NewsletterMessage"] = "Дякуємо! Ви підписані на новини.";
+            }
+            return Redirect(Url.Action(nameof(Index)) + "#join");
+        }
     }
 }

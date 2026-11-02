@@ -5,9 +5,39 @@
         <h1 class="text-success mb-3">✓ ЗАМОВЛЕННЯ ПРИЙНЯТО</h1>
         <p class="text-white fs-5 mb-4">Номер вашого замовлення: <strong>#@Model</strong></p>
         <p class="text-secondary meta-text mb-4">Ми надішлемо вам трек-номер одразу після відправки.</p>
-        
+
+        <!-- B8: інвойс генерується у фоні через чергу повідомлень -->
+        <p id="invoiceStatus" class="meta-text text-secondary mb-4">РАХУНОК-ФАКТУРА ФОРМУЄТЬСЯ...</p>
+
         <a asp-controller="Home" asp-action="Index" class="btn btn-outline-light rounded-0 text-uppercase fw-bold px-4 py-2">
             НА ГОЛОВНУ
         </a>
     </div>
 </div>
+
+<script>
+    (function () {
+        let attempts = 0;
+        async function check() {
+            attempts++;
+            try {
+                const res = await fetch('/Orders/InvoiceStatus/@Model');
+                const data = await res.json();
+                if (data.ready) {
+                    const el = document.getElementById('invoiceStatus');
+                    el.innerHTML = '';
+                    const link = document.createElement('a');
+                    link.href = data.url;
+                    link.target = '_blank';
+                    link.className = 'btn btn-outline-success rounded-0 text-uppercase fw-bold px-4 py-2';
+                    link.innerText = 'ЗАВАНТАЖИТИ РАХУНОК (PDF)';
+                    el.appendChild(link);
+                    return;
+                }
+            } catch { }
+            if (attempts < 30) setTimeout(check, 2000);
+            else document.getElementById('invoiceStatus').innerText = 'РАХУНОК НАДІЙДЕ ПІЗНІШЕ';
+        }
+        check();
+    })();
+</script>

@@ -1,0 +1,64 @@
+@using BandVault.Web.Models
+@{
+    ViewData["Title"] = "Backstage";
+    ViewData["Description"] = "Закрита зона фан-клубу: демо-записи та матеріали для VIP.";
+    var demos = (List<Track>)ViewBag.Demos;
+    var posts = (List<Post>)ViewBag.Posts;
+}
+
+<div class="container my-5">
+    <div class="d-flex justify-content-between align-items-end mb-4 border-bottom border-secondary pb-2 flex-wrap gap-2">
+        <h3 class="section-title border-0 mb-0 pb-0">Backstage</h3>
+        <span class="badge bg-warning text-dark rounded-0 meta-text mb-0 p-2">ДОСТУП: @ViewBag.TierName</span>
+    </div>
+
+    <p class="meta-text mb-5">ЗАКРИТА ЗОНА: ДЕМО-ЗАПИСИ, ЯКИХ НЕМАЄ У РЕЛІЗАХ, ТА МАТЕРІАЛИ З-ЗА КУЛІС.</p>
+
+    <div class="row g-5">
+        <div class="col-lg-7">
+            <h4 class="section-title" style="font-size: 0.85rem;">Ексклюзивні демо</h4>
+            @if (demos.Any())
+            {
+                <div class="d-flex flex-column">
+                    @foreach (var track in demos)
+                    {
+                        <div class="list-item-hover d-flex justify-content-between align-items-center py-3 px-2">
+                            <div>
+                                <span class="text-white">@track.Title</span>
+                                <div class="meta-text mb-0">@(track.Release?.Title ?? "Демо") · TIER @track.RequiredTierLevel</div>
+                            </div>
+                            <button class="btn-text-muted" style="font-size: 0.8rem;"
+                                    data-play-track="@track.Id" data-audio="@track.AudioFileUrl" data-title="@track.Title"
+                                    data-artist="@(track.Release?.Title ?? "Backstage")" data-cover="@track.Release?.CoverImageUrl"
+                                    data-release-url="/Releases/Details/@track.ReleaseId">
+                                ▶ Слухати
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-secondary meta-text">ДЕМО ЩЕ НЕ ДОДАНІ. АДМІН МОЖЕ ЗАКРИТИ ТРЕК РІВНЕМ ПРИ ДОДАВАННІ ДО РЕЛІЗУ.</p>
+            }
+        </div>
+
+        <div class="col-lg-5">
+            <h4 class="section-title" style="font-size: 0.85rem;">З-за кулис</h4>
+            @if (posts.Any())
+            {
+                @foreach (var post in posts)
+                {
+                    <a asp-controller="Posts" asp-action="Details" asp-route-id="@post.Id" class="d-block text-decoration-none list-item-hover py-3 px-2">
+                        <span class="text-white fw-bold">@post.Title</span>
+                        <div class="meta-text mb-0">@post.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy") · TIER @post.RequiredTierLevel</div>
+                    </a>
+                }
+            }
+            else
+            {
+                <p class="text-secondary meta-text">ЗАКРИТИХ ПУБЛІКАЦІЙ ПОКИ НЕМАЄ.</p>
+            }
+        </div>
+    </div>
+</div>

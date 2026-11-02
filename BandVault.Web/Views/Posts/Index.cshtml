@@ -1,5 +1,6 @@
 ﻿@model IEnumerable<BandVault.Web.Models.Post>
-@using Markdig
+@using BandVault.Web.Services
+@{ ViewData["Title"] = "Стрічка фан-клубу"; ViewData["Description"] = "Новини, анонси та закриті публікації фан-клубу."; }
 
 <div class="container my-5">
     <div class="d-flex justify-content-between align-items-end mb-4 border-bottom border-secondary pb-2">
@@ -101,7 +102,7 @@
                     @if (ViewBag.IsAdmin || ViewBag.UserTier >= post.RequiredTierLevel || post.RequiredTierLevel == 0)
                     {
                         <div class="post-preview-content text-white-50">
-                            @Html.Raw(Markdown.ToHtml(post.ContentMarkdown ?? "", new MarkdownPipelineBuilder().UseAdvancedExtensions().Build()))
+                            @MarkdownRenderer.ToHtml(post.ContentMarkdown)
                             <div class="post-preview-fade"></div>
                         </div>
 

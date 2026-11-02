@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
 using BandVault.Web.Models;
+using BandVault.Web.Services;
+using BandVault.Web.Services.Messaging;
 using System.Globalization;
 using System.Text.Json;
 
@@ -12,10 +14,24 @@ namespace BandVault.Web.Controllers
     public class OrdersController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly OrderQueue _orderQueue;
+        private readonly CatalogChangeNotifier _catalog;
 
-        public OrdersController(ApplicationDbContext context)
+        public OrdersController(ApplicationDbContext context, OrderQueue orderQueue, CatalogChangeNotifier catalog)
         {
             _context = context;
+            _orderQueue = orderQueue;
+            _catalog = catalog;
+        }
+
+        // B8: сторінка успіху опитує, чи вже згенерований інвойс фоновим обробником
+        [HttpGet]
+        public async Task<IActionResult> InvoiceStatus(int id)
+        {
+            var order = await _context.Orders.Include(o => o.User).FirstOrDefaultAsync(o => o.Id == id);
+            if (order == null) return NotFound();
+            if (order.User?.Email != User.Identity?.Name && !User.HasClaim("IsAdmin", "true")) return Forbid();
+            return Json(new { ready = !string.IsNullOrEmpty(order.InvoiceUrl), url = order.InvoiceUrl });
         }
 
         public class UpdateOrderStatusDto
@@ -71,8 +87,9 @@ namespace BandVault.Web.Controllers
             if (user == null || cart == null || !cart.Any()) return Forbid();
 
             // ФІКС: Надійний парсинг координат незалежно від локалі ОС (крапка чи кома)
-            double parsedLat = 50.4501;
-            double parsedLng = 30.5234;
+            // Без координат замовлення не потрапляє в «Київ за замовчуванням» - на мапі воно буде позначене окремо
+            double parsedLat = 0;
+            double parsedLng = 0;
             if (!string.IsNullOrWhiteSpace(lat) &&
                 double.TryParse(lat.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var l1))
             {
@@ -118,26 +135,40 @@ namespace BandVault.Web.Controllers
                 StatusId = status.Id
             };
 
-            foreach (var item in cart)
+            // Списання залишків атомарне: UPDATE ... WHERE Stock >= qty в одній транзакції із замовленням.
+            // Якщо інший покупець встиг забрати товар, рядок не оновиться - і все замовлення відкотиться.
+            await using (var transaction = await _context.Database.BeginTransactionAsync())
             {
-                order.OrderItems.Add(new OrderItem
+                foreach (var item in cart)
                 {
-                    MerchItemId = item.MerchItemId,
-                    Quantity = item.Quantity,
-                    UnitPrice = item.Price
-                });
+                    order.OrderItems.Add(new OrderItem
+                    {
+                        MerchItemId = item.MerchItemId,
+                        Quantity = item.Quantity,
+                        UnitPrice = item.Price
+                    });
 
-                var merch = await _context.MerchItems.FindAsync(item.MerchItemId);
-                if (merch != null)
-                {
-                    merch.StockQuantity = Math.Max(0, (merch.StockQuantity ?? 0) - item.Quantity);
+                    int updated = await _context.MerchItems
+                        .Where(m => m.Id == item.MerchItemId && m.StockQuantity >= item.Quantity)
+                        .ExecuteUpdateAsync(s => s.SetProperty(m => m.StockQuantity, m => m.StockQuantity - item.Quantity));
+                    if (updated == 0)
+                    {
+                        await transaction.RollbackAsync();
+                        TempData["CartError"] = $"Товару «{item.Title}» вже недостатньо на складі.";
+                        return RedirectToAction("Index", "Cart");
+                    }
                 }
+
+                _context.Orders.Add(order);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
             }
 
-            _context.Orders.Add(order);
-            await _context.SaveChangesAsync();
-
             HttpContext.Session.Remove("Cart");
+
+            // B8: інвойс + Telegram - асинхронно через чергу; C10/B9: залишки змінились - розсилаємо клієнтам і скидаємо кеш
+            await _orderQueue.PublishAsync(new OrderPlacedMessage(order.Id, order.OrderDate));
+            await _catalog.MerchChangedAsync();
 
             return View("Success", order.Id);
         }
@@ -167,7 +198,8 @@ namespace BandVault.Web.Controllers
                 phone = o.CustomerPhone,
                 email = o.CustomerEmail,
                 date = o.OrderDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
-                items = string.Join(", ", o.OrderItems.Select(oi => $"{oi.Quantity}x {(oi.MerchItem?.Title ?? "Мерч")}"))
+                items = string.Join(", ", o.OrderItems.Select(oi => $"{oi.Quantity}x {(oi.MerchItem?.Title ?? "Мерч")}")),
+                invoiceUrl = o.InvoiceUrl
             }).ToList();
 
             ViewBag.OrdersJson = JsonSerializer.Serialize(
@@ -179,6 +211,7 @@ namespace BandVault.Web.Controllers
 
         // 4. ДИНАМІЧНА ЗМІНА СТАТУСУ ПРЯМО З МАПИ (AJAX)
         [HttpPost]
+        [ValidateAntiForgeryToken] // токен передається заголовком RequestVerificationToken з мапи
         public async Task<IActionResult> UpdateStatus([FromBody] UpdateOrderStatusDto dto)
         {
             if (!User.HasClaim("IsAdmin", "true")) return Forbid();

@@ -1,0 +1,201 @@
+@{
+    ViewData["Title"] = "Асистент фан-клубу";
+    bool configured = ViewBag.Configured;
+}
+
+<style>
+    #chatLog {
+        height: 60vh;
+        overflow-y: auto;
+        background-color: #0a0a0a;
+    }
+
+    .msg-user {
+        margin-left: auto;
+        max-width: 75%;
+        background: #1a1a1a;
+        border: 1px solid #333;
+    }
+
+    .msg-bot {
+        max-width: 85%;
+        border-left: 2px solid #fff;
+    }
+
+    .msg-step {
+        font-size: 0.75rem;
+        letter-spacing: 1px;
+        color: #888;
+        border: 1px dashed #333;
+        max-width: 85%;
+    }
+
+        .msg-step summary {
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .msg-step pre {
+            white-space: pre-wrap;
+            color: #aaa;
+            font-size: 0.75rem;
+            margin: 6px 0 0;
+            max-height: 200px;
+            overflow: auto;
+        }
+
+    .msg-bot a {
+        color: #ffc107;
+    }
+
+    .typing::after {
+        content: "▍";
+        animation: blink 1s steps(1) infinite;
+    }
+
+    @@keyframes blink {
+        50% { opacity: 0; }
+    }
+</style>
+
+<div class="container my-5" style="max-width: 900px;">
+    <div class="d-flex justify-content-between align-items-end mb-4 border-bottom border-secondary pb-2">
+        <h3 class="section-title border-0 mb-0 pb-0">Асистент фан-клубу</h3>
+        <span class="meta-text mb-0">ПІДКАЖЕ ПРО МЕРЧ, РЕЛІЗИ ТА НАЯВНІСТЬ</span>
+    </div>
+
+    @if (!configured)
+    {
+        <div class="alert bg-dark border-warning text-warning rounded-0 meta-text">
+            АСИСТЕНТ НЕ НАЛАШТОВАНИЙ: ЗАДАЙТЕ Anthropic:ApiKey У USER-SECRETS АБО ЗМІННУ ANTHROPIC_API_KEY.
+        </div>
+    }
+
+    <div id="chatLog" class="border border-secondary p-3 d-flex flex-column gap-3 mb-3">
+        <div class="msg-bot ps-3 text-light">Привіт! Я асистент фан-клубу. Запитай, що є з мерчу, які релізи вийшли або чи залишились худі вашого розміру.</div>
+    </div>
+
+    <form id="chatForm" class="d-flex gap-2">
+        @Html.AntiForgeryToken()
+        <input type="text" id="chatInput" class="form-control bg-dark text-white border-secondary rounded-0" placeholder="НАПИШІТЬ ПОВІДОМЛЕННЯ..." autocomplete="off" maxlength="2000" style="letter-spacing: 1px;" />
+        <button type="submit" id="sendBtn" class="btn btn-light rounded-0 text-uppercase fw-bold px-4">Надіслати</button>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const log = document.getElementById('chatLog');
+            const input = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const token = document.querySelector('#chatForm input[name="__RequestVerificationToken"]').value;
+            const history = [];
+
+            const escapeHTML = str => String(str).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+
+            // Мінімальний безпечний markdown: спершу екрануємо все, потім дозволяємо **жирний** і посилання
+            function renderMarkdown(text) {
+                return escapeHTML(text)
+                    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\[([^\]]+)\]\(((?:\/|https:\/\/)[^\s)]+)\)/g, '<a href="$2">$1</a>')
+                    .replace(/\n/g, '<br>');
+            }
+
+            function addElement(cls, html) {
+                const el = document.createElement('div');
+                el.className = cls;
+                el.innerHTML = html;
+                log.appendChild(el);
+                log.scrollTop = log.scrollHeight;
+                return el;
+            }
+
+            function parseSseChunk(buffer, onEvent) {
+                const parts = buffer.split('\n\n');
+                const rest = parts.pop();
+                parts.forEach(part => {
+                    let type = 'message', data = '';
+                    part.split('\n').forEach(line => {
+                        if (line.startsWith('event: ')) type = line.slice(7);
+                        else if (line.startsWith('data: ')) data += line.slice(6);
+                    });
+                    if (data) onEvent(type, JSON.parse(data));
+                });
+                return rest;
+            }
+
+            async function send(text) {
+                history.push({ role: 'user', text });
+                addElement('msg-user p-2 px-3 text-white', escapeHTML(text));
+
+                let botEl = null;
+                let botText = '';
+                let thinkingEl = null;
+                const toolEls = {};
+
+                input.disabled = true;
+                sendBtn.disabled = true;
+
+                try {
+                    const res = await fetch('/Assistant/Stream', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                        body: JSON.stringify({ history })
+                    });
+                    if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
+
+                    const reader = res.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        buffer = parseSseChunk(buffer, (type, data) => {
+                            if (type === 'thinking') {
+                                if (!thinkingEl) {
+                                    thinkingEl = addElement('msg-step p-2', '<details open><summary>Думки асистента</summary><pre></pre></details>');
+                                }
+                                thinkingEl.querySelector('pre').textContent += data.text;
+                            } else if (type === 'tool_call') {
+                                thinkingEl = null;
+                                toolEls[data.id] = addElement('msg-step p-2',
+                                    `<details><summary>⚙ Виклик інструменту: ${escapeHTML(data.name)} …</summary><pre>${escapeHTML(JSON.stringify(data.input, null, 2))}</pre></details>`);
+                            } else if (type === 'tool_result') {
+                                const el = toolEls[data.id];
+                                if (el) {
+                                    el.querySelector('summary').textContent = `${data.isError ? '✕' : '✓'} Інструмент: ${data.name}`;
+                                    el.querySelector('pre').textContent += '\n\n→ ' + data.result;
+                                }
+                            } else if (type === 'text') {
+                                if (!botEl) { botEl = addElement('msg-bot ps-3 text-light typing', ''); }
+                                botText += data.text;
+                                botEl.innerHTML = renderMarkdown(botText);
+                                log.scrollTop = log.scrollHeight;
+                            } else if (type === 'error') {
+                                addElement('msg-step p-2 text-danger border-danger', escapeHTML(data.message));
+                            }
+                        });
+                    }
+                } catch (e) {
+                    addElement('msg-step p-2 text-danger border-danger', 'Помилка з\'єднання з асистентом.');
+                } finally {
+                    if (botEl) botEl.classList.remove('typing');
+                    if (botText) history.push({ role: 'assistant', text: botText });
+                    input.disabled = false;
+                    sendBtn.disabled = false;
+                    input.focus();
+                }
+            }
+
+            document.getElementById('chatForm').addEventListener('submit', e => {
+                e.preventDefault();
+                const text = input.value.trim();
+                if (!text) return;
+                input.value = '';
+                send(text);
+            });
+        })();
+    </script>
+}

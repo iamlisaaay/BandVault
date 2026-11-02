@@ -69,6 +69,19 @@ namespace BandVault.Web.Data
                 await context.SaveChangesAsync();
             }
 
+            // B6: безкоштовний базовий план для нових користувачів (раніше всі одразу отримували платний FAN)
+            if (!await context.SubscriptionTiers.AnyAsync(t => t.Level == 0))
+            {
+                var guest = new SubscriptionTier { Name = "GUEST", Level = 0, Price = 0m, IsRecommended = false };
+                context.SubscriptionTiers.Add(guest);
+                await context.SaveChangesAsync();
+                context.TierFeatures.AddRange(
+                    new TierFeature { TierId = guest.Id, Description = "Відкриті новини та релізи" },
+                    new TierFeature { TierId = guest.Id, Description = "Стіна автографів і асистент" }
+                );
+                await context.SaveChangesAsync();
+            }
+
             string superAdminEmail = config["AdminSettings:SuperAdminEmail"] ?? "admin@bandvault.com";
 
             if (!await context.Users.AnyAsync(u => u.Email == superAdminEmail))

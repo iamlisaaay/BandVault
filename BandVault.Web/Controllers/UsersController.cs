@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
 using BandVault.Web.Models;
+using BandVault.Web.Services;
 
 namespace BandVault.Web.Controllers
 {
@@ -14,11 +15,13 @@ namespace BandVault.Web.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
+        private readonly IFileService _fileService;
 
-        public UsersController(ApplicationDbContext context, IWebHostEnvironment env)
+        public UsersController(ApplicationDbContext context, IWebHostEnvironment env, IFileService fileService)
         {
             _context = context;
             _env = env;
+            _fileService = fileService;
         }
 
         // GET: /Users/Details або /Users/Details/5
@@ -50,7 +53,7 @@ namespace BandVault.Web.Controllers
 
             if (string.IsNullOrEmpty(targetUser.AvatarUrl))
             {
-                targetUser.AvatarUrl = $"https://via.placeholder.com/150/1a1a1a/ffffff?text={targetUser.DisplayName.Substring(0, 1).ToUpper()}";
+                targetUser.AvatarUrl = AvatarPlaceholder.For(targetUser.DisplayName);
             }
 
             if (targetUser.IsAdmin)
@@ -81,15 +84,12 @@ namespace BandVault.Web.Controllers
 
             if (avatarFile != null && avatarFile.Length > 0)
             {
-                string fileName = Guid.NewGuid().ToString() + Path.GetExtension(avatarFile.FileName);
-                string uploadPath = Path.Combine(_env.WebRootPath, "images", "avatars");
-                Directory.CreateDirectory(uploadPath);
-
-                using (var stream = new FileStream(Path.Combine(uploadPath, fileName), FileMode.Create))
+                // C19: аватари теж зберігаються у Blob Storage
+                if (!string.IsNullOrEmpty(user.AvatarUrl))
                 {
-                    await avatarFile.CopyToAsync(stream);
+                    await _fileService.DeleteFileAsync(user.AvatarUrl);
                 }
-                user.AvatarUrl = "/images/avatars/" + fileName;
+                user.AvatarUrl = await _fileService.UploadFileAsync(avatarFile, "avatars");
             }
 
             await _context.SaveChangesAsync();
@@ -101,7 +101,7 @@ namespace BandVault.Web.Controllers
                 new Claim("UserId", user.Id.ToString()),
                 new Claim("DisplayName", user.DisplayName ?? user.Email.Split('@')[0]),
                 new Claim("IsAdmin", user.IsAdmin.ToString().ToLower()),
-                new Claim("AvatarUrl", user.AvatarUrl ?? $"https://via.placeholder.com/150/1a1a1a/ffffff?text={user.Email[..1].ToUpper()}")
+                new Claim("AvatarUrl", user.AvatarUrl ?? AvatarPlaceholder.For(user.DisplayName ?? user.Email))
             };
 
             var identity = new ClaimsIdentity(userClaims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -113,6 +113,7 @@ namespace BandVault.Web.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> ChangeTier(int tierId)
         {
             var currentEmail = User.Identity?.Name;
@@ -121,13 +122,48 @@ namespace BandVault.Web.Controllers
             if (user == null) return RedirectToAction("Login", "Auth");
 
             var tier = await _context.SubscriptionTiers.FindAsync(tierId);
-            if (tier != null)
+            if (tier == null) return NotFound();
+
+            var currentTier = await _context.SubscriptionTiers.FindAsync(user.SubscriptionTierId);
+            // B6: безкоштовний план або зниження рівня - одразу; платне підвищення - лише через підтвердження оплати
+            if (tier.Price > 0 && tier.Level > (currentTier?.Level ?? 0) && !user.IsAdmin)
             {
-                user.SubscriptionTierId = tier.Id;
-                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Subscribe), new { id = tier.Id });
             }
 
+            user.SubscriptionTierId = tier.Id;
+            await _context.SaveChangesAsync();
             return RedirectToAction("Index", "Home");
+        }
+
+        // Сторінка підтвердження платного плану
+        [HttpGet]
+        public async Task<IActionResult> Subscribe(int id)
+        {
+            var tier = await _context.SubscriptionTiers.Include(t => t.Features).FirstOrDefaultAsync(t => t.Id == id);
+            if (tier == null || tier.Price <= 0) return NotFound();
+            return View(tier);
+        }
+
+        // Демо-оплата: у проєкті немає платіжного провайдера, тому підтвердження імітує успішний платіж.
+        // Перехід на платний план можливий лише через цю явну дію користувача з токеном форми.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ConfirmSubscribe(int id, bool acceptTerms)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == User.Identity!.Name);
+            var tier = await _context.SubscriptionTiers.FindAsync(id);
+            if (user == null || tier == null) return NotFound();
+            if (!acceptTerms)
+            {
+                TempData["SubscribeError"] = "Підтвердіть умови підписки.";
+                return RedirectToAction(nameof(Subscribe), new { id });
+            }
+
+            user.SubscriptionTierId = tier.Id;
+            await _context.SaveChangesAsync();
+            TempData["SubscribeSuccess"] = $"План {tier.Name} активовано.";
+            return RedirectToAction(nameof(Details));
         }
     }
 }

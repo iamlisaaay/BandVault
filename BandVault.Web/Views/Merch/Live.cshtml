@@ -1,0 +1,296 @@
+@{
+    ViewData["Title"] = "Залишки лімітованого мерчу";
+    bool isAdmin = User.HasClaim("IsAdmin", "true");
+}
+
+<style>
+    .mode-btn.active {
+        background-color: #fff;
+        color: #000;
+    }
+
+    .stock-row {
+        transition: background-color 0.6s;
+    }
+
+        .stock-row.flash {
+            background-color: #3a2f00 !important;
+        }
+
+    .metric-value {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #fff;
+    }
+</style>
+
+<div class="container my-5">
+    <div class="d-flex justify-content-between align-items-end mb-4 border-bottom border-secondary pb-2 flex-wrap gap-3">
+        <h3 class="section-title border-0 mb-0 pb-0">Залишки лімітованого мерчу — наживо</h3>
+        <span class="meta-text mb-0">СТАН: <strong id="connState" class="text-secondary">НЕ ПІДКЛЮЧЕНО</strong></span>
+    </div>
+
+    <p class="meta-text mb-3">СПОСІБ ЗВ'ЯЗКУ З СЕРВЕРОМ</p>
+    <div class="d-flex flex-wrap gap-2 mb-4" id="modeButtons">
+        <button type="button" class="btn btn-outline-light btn-sm rounded-0 text-uppercase mode-btn" data-mode="websocket">WebSocket</button>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-0 text-uppercase mode-btn" data-mode="signalr">SignalR</button>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-0 text-uppercase mode-btn" data-mode="longpoll">Long Poll</button>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-0 text-uppercase mode-btn" data-mode="poll">Frequent Poll (1 с)</button>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-0 text-uppercase mode-btn" data-mode="adaptive">Adaptive Poll</button>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card bg-transparent border-secondary rounded-0">
+                <div class="card-body p-0">
+                    <table class="table table-dark table-borderless align-middle mb-0">
+                        <thead>
+                            <tr class="meta-text border-bottom border-secondary">
+                                <th class="ps-3">ТОВАР</th>
+                                <th class="text-end pe-3">ЗАЛИШОК</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockBody">
+                            <tr><td colspan="2" class="text-center text-secondary meta-text py-4">ОБЕРІТЬ СПОСІБ ЗВ'ЯЗКУ</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @if (isAdmin)
+            {
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <button type="button" class="btn btn-warning text-dark rounded-0 text-uppercase fw-bold btn-sm" onclick="simulateSale()">Симулювати продаж</button>
+                    <button type="button" class="btn btn-outline-warning rounded-0 text-uppercase btn-sm" id="autoSimBtn" onclick="toggleAutoSim()">Авто-продажі: ВИМК</button>
+                </div>
+            }
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card bg-transparent border-secondary rounded-0 p-3">
+                <h6 class="meta-text text-secondary mb-3">ПОРІВНЯЛЬНИЙ АНАЛІЗ (ПОТОЧНИЙ РЕЖИМ)</h6>
+                <div class="row g-3">
+                    <div class="col-6"><div class="meta-text mb-1">HTTP-ЗАПИТІВ / ПОВІДОМЛЕНЬ</div><div class="metric-value" id="mRequests">0</div></div>
+                    <div class="col-6"><div class="meta-text mb-1">ОНОВЛЕНЬ ОТРИМАНО</div><div class="metric-value" id="mUpdates">0</div></div>
+                    <div class="col-6"><div class="meta-text mb-1">ПОРОЖНІХ ВІДПОВІДЕЙ</div><div class="metric-value" id="mEmpty">0</div></div>
+                    <div class="col-6"><div class="meta-text mb-1">ОТРИМАНО БАЙТ</div><div class="metric-value" id="mBytes">0</div></div>
+                    <div class="col-6"><div class="meta-text mb-1">СЕР. ЗАТРИМКА (МС)</div><div class="metric-value" id="mLatency">—</div></div>
+                    <div class="col-6"><div class="meta-text mb-1">ІНТЕРВАЛ ОПИТУВАННЯ</div><div class="metric-value" id="mInterval">—</div></div>
+                </div>
+            </div>
+
+            <div class="card bg-transparent border-secondary rounded-0 p-3 mt-3">
+                <h6 class="meta-text text-secondary mb-3">ІСТОРІЯ ВИМІРІВ</h6>
+                <div class="table-responsive">
+                    <table class="table table-dark table-sm mb-0" style="font-size: 0.8rem;">
+                        <thead>
+                            <tr class="meta-text">
+                                <th>РЕЖИМ</th><th>ЗАПИТИ</th><th>ОНОВЛ.</th><th>БАЙТ</th><th>ЗАТР.</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            let mode = null;
+            let stopCurrent = () => { };
+            let metrics = null;
+            let lastVersion = 0;
+            let autoSimTimer = null;
+
+            const fmt = n => n.toLocaleString('uk-UA');
+            const escapeHTML = str => String(str).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+
+            function resetMetrics() {
+                metrics = { requests: 0, updates: 0, empty: 0, bytes: 0, latencySum: 0, latencyCount: 0, interval: null };
+                renderMetrics();
+            }
+
+            function renderMetrics() {
+                document.getElementById('mRequests').innerText = fmt(metrics.requests);
+                document.getElementById('mUpdates').innerText = fmt(metrics.updates);
+                document.getElementById('mEmpty').innerText = fmt(metrics.empty);
+                document.getElementById('mBytes').innerText = fmt(metrics.bytes);
+                document.getElementById('mLatency').innerText = metrics.latencyCount ? Math.round(metrics.latencySum / metrics.latencyCount) : '—';
+                document.getElementById('mInterval').innerText = metrics.interval ? (metrics.interval / 1000).toFixed(1) + ' с' : '—';
+            }
+
+            function setState(text, cls) {
+                const el = document.getElementById('connState');
+                el.innerText = text;
+                el.className = cls;
+            }
+
+            // Застосування знімку від будь-якого транспорту
+            function applySnapshot(snapshot, rawLength) {
+                metrics.bytes += rawLength || 0;
+                if (!snapshot || snapshot.version <= lastVersion) { renderMetrics(); return false; }
+
+                const isInitial = lastVersion === 0;
+                lastVersion = snapshot.version;
+                if (!isInitial) {
+                    metrics.updates++;
+                    const latency = Date.now() - snapshot.changedAt;
+                    if (latency >= 0) { metrics.latencySum += latency; metrics.latencyCount++; }
+                }
+
+                const body = document.getElementById('stockBody');
+                const previous = {};
+                body.querySelectorAll('tr[data-id]').forEach(tr => previous[tr.dataset.id] = tr.dataset.stock);
+
+                body.innerHTML = snapshot.items.map(i => `
+                    <tr class="stock-row border-bottom border-secondary" data-id="${i.id}" data-stock="${i.stock}">
+                        <td class="ps-3">${escapeHTML(i.title)}</td>
+                        <td class="text-end pe-3 fw-bold ${i.stock > 0 ? 'text-white' : 'text-danger'}">${i.stock > 0 ? i.stock + ' ШТ.' : 'РОЗПРОДАНО'}</td>
+                    </tr>`).join('') || '<tr><td colspan="2" class="text-center text-secondary meta-text py-4">ТОВАРІВ НЕМАЄ</td></tr>';
+
+                if (!isInitial) {
+                    body.querySelectorAll('tr[data-id]').forEach(tr => {
+                        if (previous[tr.dataset.id] !== undefined && previous[tr.dataset.id] !== tr.dataset.stock) {
+                            tr.classList.add('flash');
+                            setTimeout(() => tr.classList.remove('flash'), 700);
+                        }
+                    });
+                }
+                renderMetrics();
+                return true;
+            }
+
+            // ---------- 1. WEBSOCKET ----------
+            function startWebSocket() {
+                const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+                const ws = new WebSocket(`${proto}://${location.host}/ws/stock`);
+                let closedByUs = false;
+                ws.onopen = () => { metrics.requests++; setState('WEBSOCKET ВІДКРИТО', 'text-success'); renderMetrics(); };
+                ws.onmessage = e => applySnapshot(JSON.parse(e.data), e.data.length);
+                ws.onclose = () => { if (!closedByUs) setState('WEBSOCKET ЗАКРИТО', 'text-danger'); };
+                return () => { closedByUs = true; ws.close(); };
+            }
+
+            // ---------- 2. SIGNALR ----------
+            function startSignalR() {
+                const conn = new signalR.HubConnectionBuilder().withUrl('/stockHub').withAutomaticReconnect().build();
+                conn.on('StockUpdated', s => applySnapshot(s, JSON.stringify(s).length));
+                conn.start()
+                    .then(() => { metrics.requests++; setState('SIGNALR ПІДКЛЮЧЕНО', 'text-success'); return conn.invoke('GetSnapshot'); })
+                    .then(s => applySnapshot(s, JSON.stringify(s).length))
+                    .catch(err => { console.error(err); setState('ПОМИЛКА SIGNALR', 'text-danger'); });
+                return () => conn.stop();
+            }
+
+            // ---------- 3. LONG POLL ----------
+            function startLongPoll() {
+                let active = true;
+                let controller = new AbortController();
+                setState('LONG POLL АКТИВНИЙ', 'text-success');
+                (async function loop() {
+                    while (active) {
+                        try {
+                            metrics.requests++; renderMetrics();
+                            const res = await fetch(`/api/stock/longpoll?version=${lastVersion}`, { signal: controller.signal });
+                            if (res.status === 204) { metrics.empty++; renderMetrics(); continue; }
+                            const text = await res.text();
+                            applySnapshot(JSON.parse(text), text.length);
+                        } catch (e) {
+                            if (!active) return;
+                            setState('LONG POLL: ПОВТОР ЧЕРЕЗ 2 С', 'text-warning');
+                            await new Promise(r => setTimeout(r, 2000));
+                        }
+                    }
+                })();
+                return () => { active = false; controller.abort(); };
+            }
+
+            // ---------- 4/5. FREQUENT & ADAPTIVE POLL ----------
+            function startPolling(adaptive) {
+                const MIN = 1000, MAX = 10000;
+                let interval = MIN;
+                let timer = null;
+                let active = true;
+                let etag = null;
+                setState(adaptive ? 'ADAPTIVE POLL АКТИВНИЙ' : 'POLL АКТИВНИЙ', 'text-success');
+
+                async function tick() {
+                    if (!active) return;
+                    try {
+                        metrics.requests++;
+                        const headers = etag ? { 'If-None-Match': etag } : {};
+                        const res = await fetch('/api/stock', { headers, cache: 'no-store' });
+                        let changed = false;
+                        if (res.status === 304) {
+                            metrics.empty++;
+                        } else {
+                            etag = res.headers.get('ETag');
+                            const text = await res.text();
+                            changed = applySnapshot(JSON.parse(text), text.length);
+                            if (!changed) metrics.empty++;
+                        }
+                        // Адаптивність: при змінах опитуємо частіше, у тиші - рідше (x1.5 до 10 с)
+                        if (adaptive) interval = changed ? MIN : Math.min(MAX, Math.round(interval * 1.5));
+                    } catch (e) {
+                        if (adaptive) interval = MAX;
+                    }
+                    metrics.interval = interval;
+                    renderMetrics();
+                    if (active) timer = setTimeout(tick, interval);
+                }
+                tick();
+                return () => { active = false; clearTimeout(timer); };
+            }
+
+            function saveHistory() {
+                if (!mode || !metrics || metrics.requests === 0) return;
+                const row = `<tr><td>${mode}</td><td>${metrics.requests}</td><td>${metrics.updates}</td><td>${fmt(metrics.bytes)}</td><td>${metrics.latencyCount ? Math.round(metrics.latencySum / metrics.latencyCount) : '—'}</td></tr>`;
+                document.getElementById('historyBody').insertAdjacentHTML('afterbegin', row);
+            }
+
+            function switchMode(newMode) {
+                saveHistory();
+                stopCurrent();
+                mode = newMode;
+                lastVersion = 0;
+                resetMetrics();
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === newMode));
+
+                if (newMode === 'websocket') stopCurrent = startWebSocket();
+                else if (newMode === 'signalr') stopCurrent = startSignalR();
+                else if (newMode === 'longpoll') stopCurrent = startLongPoll();
+                else if (newMode === 'poll') { stopCurrent = startPolling(false); metrics.interval = 1000; }
+                else if (newMode === 'adaptive') stopCurrent = startPolling(true);
+            }
+
+            document.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => switchMode(b.dataset.mode)));
+
+            window.simulateSale = function () {
+                fetch('/api/stock/simulate', { method: 'POST' });
+            };
+
+            window.toggleAutoSim = function () {
+                const btn = document.getElementById('autoSimBtn');
+                if (autoSimTimer) {
+                    clearInterval(autoSimTimer);
+                    autoSimTimer = null;
+                    btn.innerText = 'Авто-продажі: ВИМК';
+                } else {
+                    autoSimTimer = setInterval(window.simulateSale, 3000);
+                    btn.innerText = 'Авто-продажі: УВІМК (3 С)';
+                }
+            };
+
+            window.addEventListener('beforeunload', () => stopCurrent());
+            // Turbo-навігація не викликає beforeunload - закриваємо з'єднання вручну
+            document.addEventListener('turbo:before-render', () => {
+                stopCurrent();
+                if (autoSimTimer) clearInterval(autoSimTimer);
+            }, { once: true });
+            switchMode('websocket');
+        })();
+    </script>
+}

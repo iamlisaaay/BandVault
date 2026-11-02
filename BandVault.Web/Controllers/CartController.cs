@@ -1,4 +1,5 @@
 ﻿using BandVault.Web.Data;
+using BandVault.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -8,10 +9,12 @@ namespace BandVault.Web.Controllers
     public class CartController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly FeatureFlags _features;
 
-        public CartController(ApplicationDbContext context)
+        public CartController(ApplicationDbContext context, FeatureFlags features)
         {
             _context = context;
+            _features = features;
         }
 
         public class CartItemDto
@@ -46,6 +49,7 @@ namespace BandVault.Web.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> AddToCart(int merchId, int quantity = 1)
         {
             if (quantity < 1) quantity = 1;
@@ -66,16 +70,10 @@ namespace BandVault.Web.Controllers
             }
 
             decimal actualPrice = merch.Price;
-            if (User.Identity != null && User.Identity.IsAuthenticated && merch.FanPrice.HasValue)
+            // B6: знижка лише для планів з прапорцем fan_prices
+            if (merch.FanPrice.HasValue && await _features.IsEnabledAsync(Features.FanPrices))
             {
-                var user = await _context.Users.Include(u => u.SubscriptionTier).FirstOrDefaultAsync(u => u.Email == User.Identity.Name);
-                int userTier = user != null ? (user.IsAdmin ? 999 : (user.SubscriptionTier?.Level ?? 0)) : 0;
-
-                // Знижка тільки для платних (Tier > 0)
-                if (userTier > 0)
-                {
-                    actualPrice = merch.FanPrice.Value;
-                }
+                actualPrice = merch.FanPrice.Value;
             }
 
             if (existingItem != null)
@@ -100,6 +98,7 @@ namespace BandVault.Web.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateQuantity(int merchId, int delta)
         {
             var cart = GetCart();
@@ -130,6 +129,8 @@ namespace BandVault.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public IActionResult RemoveFromCart(int merchId)
         {
             var cart = GetCart();

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BandVault.Web.Data;
 using BandVault.Web.Models;
+using BandVault.Web.Services;
 
 namespace BandVault.Web.Controllers
 {
@@ -21,6 +22,13 @@ namespace BandVault.Web.Controllers
             _config = config;
             _env = env;
         }
+
+        // Тестовий вхід без пароля: за замовчуванням лише в Development, явно - Auth:EnableDevLogin
+        public static bool DevLoginEnabled(IConfiguration config, IWebHostEnvironment env) =>
+            config.GetValue<bool?>("Auth:EnableDevLogin") ?? env.IsDevelopment();
+
+        public static bool GoogleConfigured(IConfiguration config) =>
+            !string.IsNullOrWhiteSpace(config["Authentication:Google:ClientId"]) && !string.IsNullOrWhiteSpace(config["Authentication:Google:ClientSecret"]);
 
         [HttpGet]
         public IActionResult Login()
@@ -40,7 +48,7 @@ namespace BandVault.Web.Controllers
         public async Task<IActionResult> Login(string email)
         {
             // ФІКС 405: Дозволяємо цей метод тільки при локальній розробці
-            if (!_env.IsDevelopment()) return Forbid();
+            if (!DevLoginEnabled(_config, _env)) return Forbid();
 
             if (string.IsNullOrWhiteSpace(email)) return View();
 
@@ -53,6 +61,7 @@ namespace BandVault.Web.Controllers
         [HttpPost]
         public IActionResult ExternalLogin(string returnUrl = "/")
         {
+            if (!GoogleConfigured(_config)) return RedirectToAction(nameof(Login));
             var redirectUrl = Url.Action(nameof(ExternalLoginCallback), "Auth", new { returnUrl });
             var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
             return Challenge(properties, GoogleDefaults.AuthenticationScheme);
@@ -145,7 +154,7 @@ namespace BandVault.Web.Controllers
                 new Claim("UserId", user.Id.ToString()),
                 new Claim("DisplayName", user.DisplayName ?? user.Email.Split('@')[0]),
                 new Claim("IsAdmin", user.IsAdmin.ToString().ToLower()),
-                new Claim("AvatarUrl", user.AvatarUrl ?? $"https://via.placeholder.com/150/1a1a1a/ffffff?text={user.Email[..1].ToUpper()}")
+                new Claim("AvatarUrl", user.AvatarUrl ?? AvatarPlaceholder.For(user.DisplayName ?? user.Email))
             };
 
             var identity = new ClaimsIdentity(userClaims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -161,6 +170,8 @@ namespace BandVault.Web.Controllers
             return RedirectToAction("Index", "Home");
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken] // вихід лише з форми сайту (чужа сторінка не може розлогінити користувача)
         public async Task<IActionResult> Logout()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);

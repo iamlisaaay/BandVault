@@ -13,26 +13,36 @@ namespace BandVault.Web.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
         private readonly IFileService _fileService;
+        private readonly CatalogChangeNotifier _catalog;
+        private readonly FeatureFlags _features;
 
-        public MerchController(ApplicationDbContext context, IWebHostEnvironment env, IFileService fileService)
+        public MerchController(ApplicationDbContext context, IWebHostEnvironment env, IFileService fileService, CatalogChangeNotifier catalog, FeatureFlags features)
         {
+            _features = features;
             _context = context;
             _env = env;
             _fileService = fileService;
+            _catalog = catalog;
+        }
+
+        // C10: Моніторинг залишків лімітованого мерчу в реальному часі
+        public IActionResult Live()
+        {
+            return View();
+        }
+
+        private async Task OnMerchChangedAsync()
+        {
+            await _catalog.MerchChangedAsync();
+
         }
 
         public async Task<IActionResult> Index()
         {
             var merch = await _context.MerchItems.Include(m => m.Category).ToListAsync();
 
-            // НОВЕ: Перевіряємо рівень підписки
-            int userTier = 0;
-            if (User.Identity != null && User.Identity.IsAuthenticated)
-            {
-                var user = await _context.Users.Include(u => u.SubscriptionTier).FirstOrDefaultAsync(u => u.Email == User.Identity.Name);
-                if (user != null) userTier = user.IsAdmin ? 999 : (user.SubscriptionTier?.Level ?? 0);
-            }
-            ViewBag.UserTier = userTier;
+            // B6: знижені ціни бачать лише плани з прапорцем fan_prices
+            ViewBag.FanPrices = await _features.IsEnabledAsync(Features.FanPrices);
 
             return View(merch);
         }
@@ -62,6 +72,7 @@ namespace BandVault.Web.Controllers
 
                 _context.MerchItems.Add(merchItem);
                 await _context.SaveChangesAsync();
+                await OnMerchChangedAsync();
                 return RedirectToAction(nameof(Index));
             }
 
@@ -122,6 +133,7 @@ namespace BandVault.Web.Controllers
                     }
 
                     await _context.SaveChangesAsync();
+                    await OnMerchChangedAsync();
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -161,6 +173,15 @@ namespace BandVault.Web.Controllers
             if (!User.HasClaim("IsAdmin", "true")) return Forbid();
 
             var merchItem = await _context.MerchItems.FindAsync(id);
+            // Товар з історії замовлень не видаляємо (інакше зникнуть рядки старих замовлень) - знімаємо з продажу
+            if (merchItem != null && await _context.OrderItems.AnyAsync(oi => oi.MerchItemId == id))
+            {
+                merchItem.StockQuantity = 0;
+                await _context.SaveChangesAsync();
+                await OnMerchChangedAsync();
+                TempData["MerchMessage"] = $"«{merchItem.Title}» є в замовленнях, тому його знято з продажу (залишок 0), а не видалено.";
+                return RedirectToAction(nameof(Index));
+            }
             if (merchItem != null)
             {
                 // Опціонально: видаляємо фото з Azure при видаленні товару
@@ -171,6 +192,7 @@ namespace BandVault.Web.Controllers
 
                 _context.MerchItems.Remove(merchItem);
                 await _context.SaveChangesAsync();
+                await OnMerchChangedAsync();
             }
             return RedirectToAction(nameof(Index));
         }
@@ -185,14 +207,15 @@ namespace BandVault.Web.Controllers
 
             if (merchItem == null) return NotFound();
 
-            // НОВЕ: Перевіряємо рівень підписки
-            int userTier = 0;
-            if (User.Identity != null && User.Identity.IsAuthenticated)
-            {
-                var user = await _context.Users.Include(u => u.SubscriptionTier).FirstOrDefaultAsync(u => u.Email == User.Identity.Name);
-                if (user != null) userTier = user.IsAdmin ? 999 : (user.SubscriptionTier?.Level ?? 0);
-            }
-            ViewBag.UserTier = userTier;
+            // B6: знижені ціни бачать лише плани з прапорцем fan_prices
+            ViewBag.FanPrices = await _features.IsEnabledAsync(Features.FanPrices);
+
+            // C6: блок "Схожі товари" на лендінгу товару
+            ViewBag.Related = await _context.MerchItems
+                .Where(m => m.Id != merchItem.Id && m.CategoryId == merchItem.CategoryId)
+                .OrderByDescending(m => m.StockQuantity)
+                .Take(3)
+                .ToListAsync();
 
             return View(merchItem);
         }

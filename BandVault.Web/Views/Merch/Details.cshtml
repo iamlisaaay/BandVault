@@ -2,14 +2,26 @@
 
 @{
     ViewData["Title"] = Model.Title;
+    ViewData["Description"] = Model.Description.Length > 160 ? Model.Description[..157] + "..." : Model.Description;
+    ViewData["OgImage"] = Model.ImageUrl;
+    ViewData["OgType"] = "product";
+    var related = (List<BandVault.Web.Models.MerchItem>)ViewBag.Related;
 }
 
 <div class="container my-5" style="max-width: 1000px;">
-    <div class="mb-4">
+    <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <a asp-action="Index" class="btn btn-sm btn-outline-secondary rounded-0 text-uppercase fw-bold" style="letter-spacing: 1px;">
             &larr; Назад до каталогу
         </a>
-    </div>
+        <!-- C6: навігація по розділах лендінгу -->
+        <nav class="d-flex gap-3 meta-text mb-0">
+            <a href="#about" class="text-secondary text-decoration-none">ОПИС</a>
+            <a href="#delivery" class="text-secondary text-decoration-none">ДОСТАВКА</a>
+            @if (related.Any())
+            {
+                <a href="#related" class="text-secondary text-decoration-none">СХОЖІ</a>
+            }
+        </nav></div>
 
     <div class="card bg-transparent border-secondary text-white rounded-0">
         <div class="row g-0">
@@ -45,7 +57,7 @@
                         }
                     </div>
 
-                   @if (ViewBag.UserTier > 0 && Model.FanPrice.HasValue)
+                   @if (ViewBag.FanPrices == true && Model.FanPrice.HasValue)
                     {
                         <h3 class="fw-bold text-white mb-4">
                             <s class="text-secondary fs-5">@Model.Price.ToString("0.00") $</s> 
@@ -57,7 +69,7 @@
                         <h3 class="fw-bold text-white mb-4">@Model.Price.ToString("0.00") $</h3>
                     }
 
-                    <div class="mb-4 flex-grow-1">
+                    <div class="mb-4 flex-grow-1" id="about" style="scroll-margin-top: 80px;">
                         <h6 class="text-uppercase meta-text text-secondary border-bottom border-secondary pb-2 mb-3">Опис товару</h6>
                         <p class="card-text text-light" style="white-space: pre-wrap; line-height: 1.6;">@Model.Description</p>
                     </div>
@@ -96,4 +108,52 @@
             </div>
         </div>
     </div>
-</div>
+
+    <!-- C6: доставка, оплата, повернення -->
+    <section id="delivery" class="mt-5 pt-3" style="scroll-margin-top: 80px;">
+        <h3 class="section-title">Доставка та оплата</h3>
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            <div class="col">
+                <div class="card h-100 bg-transparent border-secondary rounded-0 p-4 text-white">
+                    <p class="meta-text">ДОСТАВКА</p>
+                    <p class="mb-0 text-light" style="font-size: 0.9rem;">Кур'єром або у відділення пошти по всій Україні. Точку доставки обираєте на мапі під час оформлення.</p>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card h-100 bg-transparent border-secondary rounded-0 p-4 text-white">
+                    <p class="meta-text">ОПЛАТА</p>
+                    <p class="mb-0 text-light" style="font-size: 0.9rem;">Готівкою або карткою при отриманні, чи переказом на IBAN. Рахунок-фактура PDF приходить одразу після замовлення.</p>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card h-100 bg-transparent border-secondary rounded-0 p-4 text-white">
+                    <p class="meta-text">ПОВЕРНЕННЯ</p>
+                    <p class="mb-0 text-light" style="font-size: 0.9rem;">14 днів на обмін чи повернення, якщо товар не був у використанні. Пишіть на пошту з бічної панелі контактів.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    @if (related.Any())
+    {
+        <section id="related" class="mt-5 pt-3" style="scroll-margin-top: 80px;">
+            <h3 class="section-title">Схожі товари</h3>
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                @foreach (var item in related)
+                {
+                    <div class="col">
+                        <a asp-action="Details" asp-route-id="@item.Id" class="card h-100 bg-transparent border-secondary text-white hover-lift rounded-0 text-decoration-none">
+                            @if (!string.IsNullOrEmpty(item.ImageUrl))
+                            {
+                                <img src="@item.ImageUrl" class="card-img-top rounded-0" alt="@item.Title" style="height: 200px; object-fit: cover;" loading="lazy">
+                            }
+                            <div class="card-body">
+                                <h6 class="fw-bold text-truncate mb-1">@item.Title</h6>
+                                <span class="meta-text mb-0">@item.Price.ToString("0.00") $</span>
+                            </div>
+                        </a>
+                    </div>
+                }
+            </div>
+        </section>
+    }</div>

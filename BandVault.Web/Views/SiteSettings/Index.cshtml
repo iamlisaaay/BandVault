@@ -22,6 +22,27 @@
             </div>
         </div>
     </div>
+    <!-- F1: прослуховування треків та динаміка замовлень -->
+    <div class="row g-4 mb-5">
+        <div class="col-lg-6">
+            <div class="card bg-transparent border-secondary p-3 rounded-0 shadow-lg h-100">
+                <h6 class="text-center text-uppercase meta-text text-secondary mb-3">Топ треків за прослуховуваннями</h6>
+                @if (((string[])ViewBag.PlaysLabels).Length == 0)
+                {
+                    <p class="meta-text text-center my-auto">ТРЕКІВ ЩЕ НЕМАЄ - ДОДАЙТЕ ЇХ У КАТАЛОЗІ РЕЛІЗІВ</p>
+                }
+                <div style="height: 260px;"><canvas id="playsChart"></canvas></div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card bg-transparent border-secondary p-3 rounded-0 shadow-lg h-100">
+                <h6 class="text-center text-uppercase meta-text text-secondary mb-3">Замовлення мерчу за 14 днів</h6>
+                <div style="height: 260px;"><canvas id="ordersChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+
 
     <div class="table-responsive">
         <table class="table table-dark table-striped table-bordered border-secondary align-middle">
@@ -50,7 +71,7 @@
 
 @section Scripts {
     <!-- Підключення Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             const ctx = document.getElementById('usersChart').getContext('2d');
@@ -75,6 +96,40 @@
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { position: 'right', labels: { color: '#fff', font: { size: 10 } } }
+                    }
+                }
+            });
+
+            const axis = { ticks: { color: '#888', font: { size: 10 } }, grid: { color: '#222' } };
+
+            new Chart(document.getElementById('playsChart'), {
+                type: 'bar',
+                data: {
+                    labels: @Html.Raw(JsonSerializer.Serialize(ViewBag.PlaysLabels)),
+                    datasets: [{ label: 'Прослуховування', data: @Html.Raw(JsonSerializer.Serialize(ViewBag.PlaysData)), backgroundColor: '#ffc107' }]
+                },
+                options: {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { ...axis, beginAtZero: true, ticks: { ...axis.ticks, precision: 0 } }, y: axis }
+                }
+            });
+
+            new Chart(document.getElementById('ordersChart'), {
+                data: {
+                    labels: @Html.Raw(JsonSerializer.Serialize(ViewBag.OrdersLabels)),
+                    datasets: [
+                        { type: 'bar', label: 'Замовлень', data: @Html.Raw(JsonSerializer.Serialize(ViewBag.OrdersCount)), backgroundColor: '#444', yAxisID: 'y' },
+                        { type: 'line', label: 'Виручка, $', data: @Html.Raw(JsonSerializer.Serialize(ViewBag.OrdersRevenue)), borderColor: '#198754', backgroundColor: '#198754', tension: 0.3, yAxisID: 'y1' }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#fff', font: { size: 10 } } } },
+                    scales: {
+                        x: axis,
+                        y: { ...axis, beginAtZero: true, ticks: { ...axis.ticks, precision: 0 } },
+                        y1: { ...axis, beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } }
                     }
                 }
             });

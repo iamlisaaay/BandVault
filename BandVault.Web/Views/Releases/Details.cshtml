@@ -1,4 +1,5 @@
 ﻿@model BandVault.Web.Models.Release
+@{ ViewData["Title"] = Model.Title; ViewData["Description"] = string.IsNullOrWhiteSpace(Model.Description) ? $"Реліз {Model.Title}" : (Model.Description.Length > 160 ? Model.Description[..157] + "..." : Model.Description); ViewData["OgImage"] = Model.CoverImageUrl; ViewData["OgType"] = "music.album"; }
 
 <div class="container my-5">
     <div class="row g-5">
@@ -35,11 +36,23 @@
                             <span class="text-white">@track.Title</span>
                             
                             <div class="d-flex gap-3 align-items-center">
-                                <!-- ФІКС: Екрануємо апострофи за допомогою replace -->
-                               <button class="btn-text-muted" style="font-size: 0.8rem;"
-                                       onclick="playTrack('@track.AudioFileUrl', '@track.Title.Replace("'", "\\'")', '@Model.Title.Replace("'", "\\'")', '@Model.CoverImageUrl', '/Releases/Details/@Model.Id')">
-                                   ▶ Слухати
-                               </button>
+                               @if (track.RequiredTierLevel > (int)ViewBag.UserTier)
+                               {
+                                   <!-- B6: закритий трек - URL аудіо не віддаємо в розмітку -->
+                                   <a href="/?changeTier=1" class="btn-text-muted text-warning text-decoration-none" style="font-size: 0.8rem;" data-turbo="false">🔒 TIER @track.RequiredTierLevel+</a>
+                               }
+                               else
+                               {
+                                   @if (track.DurationSeconds > 0)
+                                   {
+                                       <span class="meta-text mb-0">@TimeSpan.FromSeconds(track.DurationSeconds).ToString(@"m\:ss")</span>
+                                   }
+                                   <button class="btn-text-muted" style="font-size: 0.8rem;"
+                                           data-play-track="@track.Id" data-audio="@track.AudioFileUrl" data-title="@track.Title"
+                                           data-artist="@Model.Title" data-cover="@Model.CoverImageUrl" data-release-url="/Releases/Details/@Model.Id">
+                                       ▶ Слухати
+                                   </button>
+                               }
 
                                @if (ViewBag.IsAdmin)
                                {
@@ -71,12 +84,27 @@
                             <input type="text" name="title" class="form-control form-control-dark rounded-0" required />
                         </div>
                         
-                        <div class="col-md-5">
+                        <div class="col-md-4">
                             <label class="form-label meta-text mb-1">Аудіофайл (MP3)</label>
-                            <input type="file" name="audioFile" class="form-control form-control-dark rounded-0" accept="audio/*" required />
+                            <input type="file" name="audioFile" id="audioFileInput" class="form-control form-control-dark rounded-0" accept="audio/*" required />
+                            <input type="hidden" name="durationSeconds" id="durationSeconds" value="0" />
                         </div>
 
                         <div class="col-md-2">
+                            <label class="form-label meta-text mb-1">Доступ</label>
+                            <select name="requiredTierLevel" class="form-select form-select-dark rounded-0">
+                                <option value="0">Усім</option>
+                                @foreach (var tier in (List<BandVault.Web.Models.SubscriptionTier>)ViewBag.Tiers)
+                                {
+                                    if (tier.Level > 0)
+                                    {
+                                        <option value="@tier.Level">@tier.Name+</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-1">
                             <button type="submit" class="btn btn-light w-100 rounded-0 text-uppercase fw-bold" style="font-size: 0.8rem; height: 38px;">Додати</button>
                         </div>
                     </form>
@@ -85,3 +113,23 @@
         </div>
     </div>
 </div>
+<script>
+    // Тривалість треку визначаємо в браузері з вибраного файлу (File API + <audio>), щоб не парсити аудіо на сервері
+    (function () {
+        const input = document.getElementById('audioFileInput');
+        if (!input) return;
+        input.addEventListener('change', () => {
+            const file = input.files && input.files[0];
+            document.getElementById('durationSeconds').value = 0;
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            const probe = new Audio();
+            probe.preload = 'metadata';
+            probe.onloadedmetadata = () => {
+                if (isFinite(probe.duration)) document.getElementById('durationSeconds').value = Math.round(probe.duration);
+                URL.revokeObjectURL(url);
+            };
+            probe.src = url;
+        });
+    })();
+</script>

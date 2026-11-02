@@ -1,35 +1,54 @@
 ﻿@using System.Text.Json
 @using Microsoft.AspNetCore.Http
+@using Microsoft.Extensions.Caching.Memory
 @inject BandVault.Web.Data.ApplicationDbContext DbContext
+@inject BandVault.Web.Services.FeatureFlags FeatureFlags
+@inject Microsoft.Extensions.Caching.Memory.IMemoryCache MemoryCache
 <!DOCTYPE html>
 <html lang="uk">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - BandVault.Web</title>
+    @{
+        // C7: кожна сторінка може задати власні Title / Description / OgImage через ViewData
+        var pageTitle = ViewData["Title"] as string;
+        var fullTitle = string.IsNullOrWhiteSpace(pageTitle) ? "BandVault — офіційний фан-клуб" : $"{pageTitle} — BandVault";
+        var pageDescription = ViewData["Description"] as string ?? "Офіційний фан-клуб гурту: ексклюзивні новини, релізи, демо-записи та офіційний мерч.";
+        var baseUrl = $"{Context.Request.Scheme}://{Context.Request.Host}";
+        var ogImage = ViewData["OgImage"] as string;
+        if (string.IsNullOrEmpty(ogImage)) ogImage = $"{baseUrl}/og-image.png";
+        else if (ogImage.StartsWith("/")) ogImage = baseUrl + ogImage;
+        var canonical = $"{baseUrl}{Context.Request.Path}";
+    }
+    <title>@fullTitle</title>
 
     <!-- C7: SEO та OpenGraph -->
-    <meta name="description" content="Офіційний фан-клуб гурту BandVault. Ексклюзивні новини, релізи та офіційний мерч." />
-    <meta property="og:title" content="@(ViewData["Title"] ?? "BandVault Fanclub")" />
-    <meta property="og:description" content="Офіційний фан-клуб та магазин ексклюзивного мерчу." />
-    <meta property="og:image" content="@($"{Context.Request.Scheme}://{Context.Request.Host}/favicon.ico")" />
-    <meta property="og:type" content="website" />
+    <meta name="description" content="@pageDescription" />
+    <link rel="canonical" href="@canonical" />
+    <meta property="og:site_name" content="BandVault" />
+    <meta property="og:title" content="@fullTitle" />
+    <meta property="og:description" content="@pageDescription" />
+    <meta property="og:image" content="@ogImage" />
+    <meta property="og:url" content="@canonical" />
+    <meta property="og:type" content="@(ViewData["OgType"] as string ?? "website")" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="~/favicon.ico" />
-
     <script type="importmap"></script>
 
     @inject Microsoft.Extensions.Configuration.IConfiguration Config
     @{
         var gaId = Config["GoogleAnalytics:MeasurementId"];
     }
-    @if (!string.IsNullOrEmpty(gaId) && gaId != "G-XXXXXXXXXX")
+    @if (!string.IsNullOrEmpty(gaId) && gaId != "G-9N1J26JPT9")
     {
         <script async src="https://www.googletagmanager.com/gtag/js?id=@gaId"></script>
         <script>
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
-                gtag('config', '@gaId');
+                // C9: Turbo змінює сторінки без перезавантаження - page_view надсилаємо вручну на кожен turbo:load
+                gtag('config', '@gaId', { send_page_view: false });
+                document.addEventListener('turbo:load', () => gtag('event', 'page_view', { page_location: location.href, page_title: document.title }));
         </script>
     }
 
@@ -62,9 +81,14 @@
         string yt = "#", ig = "#", ds = "#", mail = "info@bandvault.com";
         try
         {
-            var socialSettings = DbContext.SiteSettings
-                .Where(s => s.Key.StartsWith("Social_") || s.Key == "ContactEmail")
-                .ToDictionary(s => s.Key, s => s.Value);
+            // Соцмережі змінюються рідко - кешуємо на 5 хв замість SQL-запиту на кожну сторінку
+            var socialSettings = MemoryCache.GetOrCreate("layout_social_settings", entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+                return DbContext.SiteSettings
+                    .Where(s => s.Key.StartsWith("Social_") || s.Key == "ContactEmail")
+                    .ToDictionary(s => s.Key, s => s.Value);
+            })!;
             yt = socialSettings.GetValueOrDefault("Social_YouTube", "#");
             ig = socialSettings.GetValueOrDefault("Social_Instagram", "#");
             ds = socialSettings.GetValueOrDefault("Social_Discord", "#");
@@ -85,11 +109,12 @@
 
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav me-auto">
-                        <li class="nav-item">
-                            <a class="nav-link text-light" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
+                       
                         <li class="nav-item">
                             <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Merch" asp-action="Index">Мерч</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Merch" asp-action="Live" data-turbo="false">Наживо</a>
                         </li>
 
                         @if (User.Identity != null && User.Identity.IsAuthenticated)
@@ -100,6 +125,18 @@
                             <li class="nav-item">
                                 <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Posts" asp-action="Index">Стрічка</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Board" asp-action="Index" data-turbo="false">Стіна</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Assistant" asp-action="Index" data-turbo="false">Асистент</a>
+                            </li>
+                            @if (await FeatureFlags.IsEnabledAsync(BandVault.Web.Services.Features.Backstage))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link text-warning text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Backstage" asp-action="Index">Backstage</a>
+                                </li>
+                            }
                         }
 
                         @if (User.HasClaim("IsAdmin", "true"))
@@ -128,7 +165,7 @@
                             var layoutDisplayName = User.FindFirst("DisplayName")?.Value ?? "U";
                             if (string.IsNullOrEmpty(layoutAvatarUrl))
                             {
-                                layoutAvatarUrl = $"https://via.placeholder.com/150/1a1a1a/ffffff?text={layoutDisplayName.Substring(0, 1).ToUpper()}";
+                                layoutAvatarUrl = BandVault.Web.Services.AvatarPlaceholder.For(layoutDisplayName);
                             }
 
                             <a asp-controller="Users" asp-action="Details" class="d-flex align-items-center link-light text-decoration-none border-start border-secondary ps-3">
@@ -149,7 +186,7 @@
     </header>
 
     <!-- Бічна плашка контактів з БД -->
-    <div class="position-fixed end-0 top-50 translate-middle-y bg-black border border-secondary p-3 d-none d-md-flex flex-column gap-4 shadow-lg" style="z-index: 1040; border-right: none !important; border-top-left-radius: 8px; border-bottom-left-radius: 8px;">
+    <div class="contacts-rail position-fixed end-0 top-50 translate-middle-y bg-black border border-secondary p-3 d-flex flex-column gap-4 shadow-lg" style="z-index: 1040; border-right: none !important; border-top-left-radius: 8px; border-bottom-left-radius: 8px;">
         <a href="@yt" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6 mb-0" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">YT</a>
         <a href="@ig" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6 mb-0" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">IG</a>
         <a href="@ds" target="_blank" class="text-secondary text-decoration-none text-center meta-text fw-bold fs-6 mb-0" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6c757d'">DS</a>
@@ -171,26 +208,86 @@
     <!-- Глобальний аудіо-плеєр -->
     <div id="global-player" data-turbo-permanent class="global-audio-footer bg-black border-top border-secondary shadow-lg py-2">
         <div class="container d-flex align-items-center">
-            <img id="player-cover" src="https://via.placeholder.com/50/000000/ffffff?text=BV" alt="Cover" class="rounded me-3 border border-secondary" style="width: 50px; height: 50px; object-fit: cover;">
+            <img id="player-cover" src="@BandVault.Web.Services.AvatarPlaceholder.For("BV", 50)" alt="Cover" class="rounded me-3 border border-secondary" style="width: 50px; height: 50px; object-fit: cover;">
             <div class="player-info text-white me-3 d-none d-md-block" style="min-width: 180px; max-width: 250px;">
                 <h6 class="mb-0 text-light" style="font-size: 0.75rem; letter-spacing: 1px;">NOW PLAYING</h6>
                 <div id="player-track-title" class="fw-bold text-truncate" style="font-size: 0.95rem;">Оберіть трек</div>
                 <a id="player-track-artist" href="#" class="text-secondary text-truncate d-block text-decoration-none release-link" style="font-size: 0.875em; transition: color 0.2s;">BandVault</a>
             </div>
             <div class="flex-grow-1 mx-4 d-none d-lg-block">
-                <canvas id="visualizer" width="600" height="40" class="w-100 rounded"></canvas>
+                <canvas id="visualizer" width="600" height="40" class="w-100 rounded" title="Налаштувати візуалізатор"></canvas>
             </div>
+            <button type="button" id="vizSettingsBtn" class="btn btn-sm btn-outline-secondary rounded-0 me-3 d-none d-lg-inline-block" title="Налаштування візуалізатора" aria-expanded="false" aria-controls="vizPanel">⚙</button>
             <div class="player-controls ms-auto">
                 <audio id="main-audio" controls>
                     <source id="main-audio-source" src="" type="audio/mpeg">
                 </audio>
             </div>
         </div>
+
+        <!-- F6: панель налаштувань візуалізатора (відкривається над плеєром) -->
+        <div id="vizPanel" class="viz-panel d-none" role="dialog" aria-label="Налаштування візуалізатора">
+            <div class="d-flex justify-content-between align-items-center border-bottom border-secondary pb-2 mb-3">
+                <span class="meta-text text-white mb-0">ВІЗУАЛІЗАТОР</span>
+                <button type="button" class="btn-close btn-close-white" style="font-size: 0.65rem;" data-viz-close aria-label="Закрити"></button>
+            </div>
+
+            <div class="meta-text mb-2">ПРЕСЕТИ</div>
+            <div class="d-flex flex-wrap gap-2 mb-3" id="vizPresets">
+                <button type="button" class="btn btn-sm btn-outline-light rounded-0 viz-chip" data-preset="classic">Класика</button>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-0 viz-chip" data-preset="neon">Неон</button>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-0 viz-chip" data-preset="blood">Кров</button>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-0 viz-chip" data-preset="ocean">Океан</button>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-0 viz-chip" data-preset="spectrum">Спектр</button>
+            </div>
+
+            <div class="meta-text mb-2">СТИЛЬ</div>
+            <div class="d-flex flex-wrap gap-2 mb-3" data-viz-group="style">
+                <button type="button" class="btn btn-sm btn-outline-light rounded-0 viz-chip" data-value="bars">Стовпчики</button>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-0 viz-chip" data-value="mirror">Дзеркало</button>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-0 viz-chip" data-value="wave">Хвиля</button>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-0 viz-chip" data-value="dots">Точки</button>
+            </div>
+
+            <div class="meta-text mb-2">КОЛІР</div>
+            <div class="d-flex flex-wrap gap-2 mb-2" data-viz-group="colorMode">
+                <button type="button" class="btn btn-sm btn-outline-light rounded-0 viz-chip" data-value="solid">Один колір</button>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-0 viz-chip" data-value="gradient">Градієнт</button>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-0 viz-chip" data-value="rainbow">Веселка</button>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-0 viz-chip" data-value="reactive">Від гучності</button>
+            </div>
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <label class="d-flex align-items-center gap-2 meta-text mb-0">
+                    <input type="color" id="vizColor1" class="viz-color" /> ОСНОВНИЙ
+                </label>
+                <label class="d-flex align-items-center gap-2 meta-text mb-0" id="vizColor2Wrap">
+                    <input type="color" id="vizColor2" class="viz-color" /> ДРУГИЙ
+                </label>
+            </div>
+
+            <label class="meta-text d-flex justify-content-between mb-1" for="vizSensitivity">ЧУТЛИВІСТЬ <span id="vizSensitivityVal"></span></label>
+            <input type="range" class="form-range mb-2" id="vizSensitivity" min="0.5" max="2.5" step="0.1" />
+
+            <label class="meta-text d-flex justify-content-between mb-1" for="vizBars">КІЛЬКІСТЬ СМУГ <span id="vizBarsVal"></span></label>
+            <input type="range" class="form-range mb-2" id="vizBars" min="0" max="3" step="1" />
+
+            <label class="meta-text d-flex justify-content-between mb-1" for="vizSmoothing">ПЛАВНІСТЬ <span id="vizSmoothingVal"></span></label>
+            <input type="range" class="form-range mb-2" id="vizSmoothing" min="0" max="0.95" step="0.05" />
+
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" role="switch" id="vizGlow">
+                <label class="form-check-label meta-text mb-0" for="vizGlow">СВІТІННЯ</label>
+            </div>
+
+            <button type="button" class="btn btn-sm btn-outline-secondary rounded-0 w-100 text-uppercase" id="vizReset">Скинути</button>
+        </div>
     </div>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <!-- SignalR підключається до скриптів сторінок: його використовують редактор постів, дошка та моніторинг залишків -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.12/signalr.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
 
     <!-- ГЛОБАЛЬНОЕ УВЕДОМЛЕНИЕ ПРО НОВЫЙ ПОСТ (СТРОГИЙ ДИЗАЙН БЕЗ СМАЙЛОВ) -->
@@ -218,7 +315,6 @@
             }
     </style>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.12/signalr.min.js"></script>
     <script>
             function initSignalR() {
                 if (!window.feedHubConnection) {

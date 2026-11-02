@@ -21,32 +21,43 @@ namespace BandVault.Web.Controllers
         private readonly IConfiguration _config;
         private readonly IHubContext<FeedHub> _hubContext;
         private readonly IFileService _fileService; // НОВЕ: Сервіс для Azure
+        private readonly TelegramNotifier _telegram;
 
-        public PostsController(ApplicationDbContext context, IWebHostEnvironment env, IConfiguration config, IHubContext<FeedHub> hubContext, IFileService fileService)
+        public PostsController(ApplicationDbContext context, IWebHostEnvironment env, IConfiguration config, IHubContext<FeedHub> hubContext, IFileService fileService, TelegramNotifier telegram)
         {
             _context = context;
             _env = env;
             _config = config;
             _hubContext = hubContext;
             _fileService = fileService;
+            _telegram = telegram;
         }
 
+        private const long MaxMediaSize = 20 * 1024 * 1024;
+
         [HttpPost]
+        [RequestSizeLimit(MaxMediaSize + 1024 * 1024)]
         public async Task<IActionResult> UploadMedia(IFormFile file)
         {
             if (!User.HasClaim("IsAdmin", "true")) return Forbid();
 
             if (file == null || file.Length == 0) return BadRequest("Файл порожній.");
+            if (file.Length > MaxMediaSize) return BadRequest("Файл більший за 20 МБ.");
 
             string ext = Path.GetExtension(file.FileName).ToLower();
 
+            // Лише медіа з білого списку: .html/.svg тощо зі скриптами у публічне сховище не потрапляють
+            string? type = ext switch
+            {
+                ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp" => "image",
+                ".mp4" or ".webm" or ".mov" => "video",
+                ".mp3" or ".wav" or ".m4a" or ".ogg" or ".flac" => "audio",
+                _ => null
+            };
+            if (type == null) return BadRequest("Дозволені лише зображення, відео та аудіо.");
+
             // C19: Завантажуємо файл у хмару Azure Blob Storage замість локальної папки
             string fileUrl = await _fileService.UploadFileAsync(file, "posts");
-
-            string type = "file";
-            if (ext is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp") type = "image";
-            else if (ext is ".mp4" or ".webm" or ".mov") type = "video";
-            else if (ext is ".mp3" or ".wav" or ".m4a" or ".ogg" or ".flac") type = "audio";
 
             return Json(new { url = fileUrl, type = type, name = file.FileName });
         }
@@ -85,6 +96,9 @@ namespace BandVault.Web.Controllers
 
             bool isAdmin = user?.IsAdmin ?? false;
             int userTier = user?.SubscriptionTier?.Level ?? 0;
+
+            // Чернетку бачать лише адмін та автор, а не будь-хто, хто знає id
+            if (!post.IsPublished && !isAdmin && post.AuthorId != user?.Id) return NotFound();
 
             bool hasAccess = isAdmin || post.RequiredTierLevel == 0 || userTier >= post.RequiredTierLevel;
 
@@ -133,14 +147,7 @@ namespace BandVault.Web.Controllers
 
                 if (post.IsPublished)
                 {
-                    await SendTelegramNotification(post);
-
-                    await _hubContext.Clients.All.SendAsync("ReceiveNewPost", new
-                    {
-                        id = post.Id,
-                        title = post.Title,
-                        tier = post.RequiredTierLevel
-                    });
+                    await AnnouncePostAsync(post);
                 }
 
                 return RedirectToAction(nameof(Index));
@@ -149,30 +156,23 @@ namespace BandVault.Web.Controllers
             return Forbid();
         }
 
-        private async Task SendTelegramNotification(Post post)
+        // Повідомлення про публікацію: Telegram (B2) + SignalR (C11)
+        private async Task AnnouncePostAsync(Post post)
         {
-            try
+            string postUrl = Url.Action("Details", "Posts", new { id = post.Id }, Request.Scheme) ?? "";
+            bool isExclusive = post.RequiredTierLevel > 0;
+
+            // Відправка в Telegram не затримує відповідь адміну
+            string title = isExclusive ? $"Ексклюзив для Tier {post.RequiredTierLevel}+" : TelegramNotifier.Encode(post.Title);
+            _ = _telegram.SendHtmlAsync($"🔥 <b>Новий пост у фан-клубі!</b>\n\n<b>{title}</b>\n\n👉 <a href=\"{postUrl}\">Читати повністю</a>");
+
+            // Назви закритих постів не розсилаємо всім підключеним (включно з анонімами)
+            await _hubContext.Clients.All.SendAsync("ReceiveNewPost", new
             {
-                string token = _config["TelegramBot:Token"] ?? "";
-                string chatId = _config["TelegramBot:ChatId"] ?? "";
-
-                if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(chatId) || token.Contains("Dummy"))
-                    return;
-
-                string postUrl = Url.Action("Details", "Posts", new { id = post.Id }, Request.Scheme) ?? "";
-
-                string safeTitle = System.Net.WebUtility.HtmlEncode(post.Title);
-                string message = $"🔥 <b>Новий пост у фан-клубі!</b>\n\n<b>{safeTitle}</b>\n\n👉 <a href=\"{postUrl}\">Читати повністю</a>";
-
-                using var client = new HttpClient();
-                string requestUrl = $"https://api.telegram.org/bot{token}/sendMessage?chat_id={HttpUtility.UrlEncode(chatId)}&text={HttpUtility.UrlEncode(message)}&parse_mode=HTML";
-
-                await client.GetAsync(requestUrl);
-            }
-            catch
-            {
-                // Ігноруємо помилки мережі
-            }
+                id = post.Id,
+                title = isExclusive ? "Новий ексклюзивний матеріал" : post.Title,
+                tier = post.RequiredTierLevel
+            });
         }
 
         public async Task<IActionResult> Edit(int? id)
@@ -221,12 +221,17 @@ namespace BandVault.Web.Controllers
                     return Forbid();
                 }
 
+                bool becamePublished = !existingPost.IsPublished && post.IsPublished;
+
                 existingPost.Title = post.Title;
                 existingPost.ContentMarkdown = post.ContentMarkdown;
                 existingPost.IsPublished = post.IsPublished;
                 existingPost.RequiredTierLevel = post.RequiredTierLevel;
 
                 await _context.SaveChangesAsync();
+
+                // Чернетку опублікували через редагування - теж сповіщаємо
+                if (becamePublished) await AnnouncePostAsync(existingPost);
             }
             catch (DbUpdateConcurrencyException)
             {

@@ -130,6 +130,101 @@ body {
 #visualizer {
     background-color: transparent;
     display: block;
+    cursor: pointer;
+}
+
+/* C6: контакти постійно на екрані - на телефонах компактна смужка */
+@media (max-width: 767.98px) {
+    .contacts-rail {
+        padding: 8px 6px !important;
+        gap: 12px !important;
+    }
+
+        .contacts-rail a {
+            font-size: 0.65rem !important;
+        }
+}
+
+/* Панель налаштувань візуалізатора (над плеєром) */
+.viz-panel {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 16px;
+    width: 320px;
+    max-width: calc(100vw - 32px);
+    max-height: 70vh;
+    overflow-y: auto;
+    background-color: #0a0a0a;
+    border: 1px solid #333;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.8);
+    padding: 16px;
+    z-index: 1060;
+    animation: vizPanelIn 0.18s ease-out;
+}
+
+    .viz-panel .meta-text {
+        margin-bottom: 0.5rem;
+    }
+
+    .viz-panel .form-range::-webkit-slider-thumb {
+        background-color: #fff;
+    }
+
+    .viz-panel .form-range::-webkit-slider-runnable-track {
+        background-color: #333;
+    }
+
+    .viz-panel .form-check-input {
+        background-color: #1a1a1a;
+        border-color: #444;
+    }
+
+        .viz-panel .form-check-input:checked {
+            background-color: #ffc107;
+            border-color: #ffc107;
+        }
+
+        .viz-panel .form-check-input:focus {
+            box-shadow: none;
+            border-color: #666;
+        }
+
+.viz-chip {
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+}
+
+    .viz-chip.active {
+        background-color: #fff;
+        color: #000;
+    }
+
+.viz-color {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid #333;
+    background: none;
+    cursor: pointer;
+}
+
+#vizSettingsBtn.active {
+    background-color: #fff;
+    color: #000;
+}
+
+@keyframes vizPanelIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 /* Кастомізація стандартного аудіо-плеєра для темної теми */

@@ -14,12 +14,16 @@ namespace BandVault.Web.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
         private readonly IFileService _fileService;
+        private readonly CatalogChangeNotifier _catalog;
+        private readonly FeatureFlags _features;
 
-        public ReleasesController(ApplicationDbContext context, IWebHostEnvironment env, IFileService fileService)
+        public ReleasesController(ApplicationDbContext context, IWebHostEnvironment env, IFileService fileService, CatalogChangeNotifier catalog, FeatureFlags features)
         {
             _context = context;
             _env = env;
             _fileService = fileService;
+            _catalog = catalog;
+            _features = features;
         }
 
         public async Task<IActionResult> Index()
@@ -37,11 +41,24 @@ namespace BandVault.Web.Controllers
 
             if (release == null) return NotFound();
 
-            var currentUserEmail = User.Identity?.Name;
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == currentUserEmail);
-            ViewBag.IsAdmin = user?.IsAdmin ?? false;
+            ViewBag.IsAdmin = await _features.IsAdminAsync();
+            // B6: треки вищого рівня показуються замкненими, а їхній URL не потрапляє в розмітку
+            ViewBag.UserTier = await _features.GetTierLevelAsync();
+            ViewBag.Tiers = await _context.SubscriptionTiers.OrderBy(t => t.Level).ToListAsync();
 
             return View(release);
+        }
+
+        // F1: лічильник прослуховувань для статистики
+        [HttpPost]
+        public async Task<IActionResult> RegisterPlay(int id)
+        {
+            var track = await _context.Tracks.FindAsync(id);
+            if (track == null) return NotFound();
+            if (track.RequiredTierLevel > await _features.GetTierLevelAsync()) return Forbid();
+
+            await _context.Tracks.Where(t => t.Id == id).ExecuteUpdateAsync(s => s.SetProperty(t => t.PlayCount, t => t.PlayCount + 1));
+            return NoContent();
         }
 
         public IActionResult Create()
@@ -71,6 +88,7 @@ namespace BandVault.Web.Controllers
 
                 _context.Releases.Add(release);
                 await _context.SaveChangesAsync();
+                await _catalog.ReleasesChangedAsync();
                 return RedirectToAction(nameof(Index));
             }
             ViewBag.Genres = new SelectList(_context.Genres, "Id", "Name", release.GenreId);
@@ -121,6 +139,7 @@ namespace BandVault.Web.Controllers
                     }
 
                     await _context.SaveChangesAsync();
+                await _catalog.ReleasesChangedAsync();
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -154,22 +173,29 @@ namespace BandVault.Web.Controllers
         {
             if (!User.HasClaim("IsAdmin", "true")) return Forbid();
 
-            var release = await _context.Releases.FindAsync(id);
+            var release = await _context.Releases.Include(r => r.Tracks).FirstOrDefaultAsync(r => r.Id == id);
             if (release != null)
             {
                 if (!string.IsNullOrEmpty(release.CoverImageUrl))
                 {
                     await _fileService.DeleteFileAsync(release.CoverImageUrl);
                 }
+                // Треки видаляються каскадно - прибираємо і їхні аудіофайли зі сховища
+                foreach (var track in release.Tracks.Where(t => !string.IsNullOrEmpty(t.AudioFileUrl)))
+                {
+                    await _fileService.DeleteFileAsync(track.AudioFileUrl);
+                }
 
                 _context.Releases.Remove(release);
                 await _context.SaveChangesAsync();
+                await _catalog.ReleasesChangedAsync();
             }
             return RedirectToAction(nameof(Index));
         }
 
         [HttpPost]
-        public async Task<IActionResult> AddTrack(int releaseId, string title, IFormFile audioFile)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddTrack(int releaseId, string title, IFormFile audioFile, int durationSeconds = 0, int requiredTierLevel = 0)
         {
             if (!User.HasClaim("IsAdmin", "true")) return Forbid();
 
@@ -183,13 +209,16 @@ namespace BandVault.Web.Controllers
                     ReleaseId = releaseId,
                     Title = title,
                     AudioFileUrl = fileUrl,
-                    DurationSeconds = 0,
+                    // Тривалість зчитується в браузері з самого файлу (File API) перед відправкою форми
+                    DurationSeconds = Math.Max(0, durationSeconds),
                     PlayCount = 0,
-                    RequiredTierLevel = 0
+                    // B6: демо-записи можна закрити для вищих рівнів фан-клубу
+                    RequiredTierLevel = Math.Max(0, requiredTierLevel)
                 };
 
                 _context.Tracks.Add(track);
                 await _context.SaveChangesAsync();
+                await _catalog.ReleasesChangedAsync();
             }
             return RedirectToAction(nameof(Details), new { id = releaseId });
         }
@@ -211,6 +240,7 @@ namespace BandVault.Web.Controllers
 
                 _context.Tracks.Remove(track);
                 await _context.SaveChangesAsync();
+                await _catalog.ReleasesChangedAsync();
             }
             return RedirectToAction(nameof(Details), new { id = releaseId });
         }

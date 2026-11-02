@@ -1,0 +1,57 @@
+# ============================================
+# C2: Хмарне розгортання на Render (Blueprint)
+# Render -> New -> Blueprint -> вибрати репозиторій. Створить веб-сервіс (Docker) та PostgreSQL.
+# autoDeploy вимкнено: нові версії розгортає GitHub Actions (C3) лише після зелених тестів.
+# ============================================
+services:
+  - type: web
+    name: bandvault
+    runtime: docker
+    plan: free
+    dockerContext: ./BandVault.Web
+    dockerfilePath: ./BandVault.Web/Dockerfile
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bandvault-db
+          property: connectionString
+      # Без Redis/RabbitMQ застосунок працює на вбудованих запасних варіантах (memory cache, локальна черга)
+      - key: ConnectionStrings__Redis
+        value: ""
+      - key: ConnectionStrings__RabbitMQ
+        sync: false
+      # C19: Azure Blob Storage (рядок підключення задається вручну в Dashboard)
+      - key: Storage__Provider
+        value: Blob
+      - key: ConnectionStrings__AzureBlobStorage
+        sync: false
+      - key: Storage__PublicBaseUrl
+        sync: false
+      - key: AdminSettings__SuperAdminEmail
+        sync: false
+      - key: Authentication__Google__ClientId
+        sync: false
+      - key: Authentication__Google__ClientSecret
+        sync: false
+      - key: TelegramBot__Token
+        sync: false
+      - key: TelegramBot__ChatId
+        sync: false
+      - key: Api__Key
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GoogleAnalytics__MeasurementId
+        sync: false
+
+databases:
+  - name: bandvault-db
+    plan: free
+    databaseName: bandvault_db
+    user: bandvault_user

@@ -108,13 +108,14 @@
         function buildPopupHtml(order) {
             return `
                 <div style="min-width: 230px; font-size: 0.88rem;">
-                    <div class="fw-bold border-bottom pb-1 mb-2">Замовлення #${order.id} (${order.date})</div>
-                    <div>👤 <b>Клієнт:</b> ${order.user}</div>
-                    <div>📞 <b>Тел:</b> ${order.phone}</div>
-                    <div>📍 <b>Адреса:</b> ${order.address}</div>
-                    <div>📦 <b>Товари:</b> ${order.items || '-'}</div>
-                    <div>💳 <b>Оплата:</b> ${order.paymentMethod}</div>
+                    <div class="fw-bold border-bottom pb-1 mb-2">Замовлення #${order.id} (${esc(order.date)})</div>
+                    <div>👤 <b>Клієнт:</b> ${esc(order.user)}</div>
+                    <div>📞 <b>Тел:</b> ${esc(order.phone)}</div>
+                    <div>📍 <b>Адреса:</b> ${esc(order.address)}</div>
+                    <div>📦 <b>Товари:</b> ${esc(order.items || '-')}</div>
+                    <div>💳 <b>Оплата:</b> ${esc(order.paymentMethod)}</div>
                     <div class="mt-1">💰 <b>Сума:</b> <strong style="color:#198754;">${Number(order.total).toFixed(2)} $</strong></div>
+                    ${order.invoiceUrl ? `<div class="mt-1">🧾 <a href="${esc(order.invoiceUrl)}" target="_blank">Рахунок (PDF)</a></div>` : ''}
                     <hr class="my-2"/>
                     <label class="small fw-bold d-block mb-1">Змінити статус:</label>
                     <div class="d-flex gap-1">
@@ -131,6 +132,7 @@
 
         function applyFilters() {
             const st = document.getElementById('statusFilter').value;
+            const city = document.getElementById('cityFilter').value;
             const pay = document.getElementById('paymentFilter').value;
             const q = document.getElementById('searchFilter').value.trim().toLowerCase();
             const minTotal = parseFloat(document.getElementById('minTotalFilter').value) || 0;
@@ -140,6 +142,7 @@
 
             const filtered = orders.filter(o => {
                 if (st !== 'all' && o.status !== st) return false;
+                if (city !== 'all' && cityOf(o) !== city) return false;
                 if (pay !== 'all' && o.paymentMethod !== pay) return false;
                 if (Number(o.total) < minTotal) return false;
                 if (q) {
@@ -165,25 +168,31 @@
                     iconAnchor: [9, 9]
                 });
 
-                const marker = L.marker([order.lat, order.lng], { icon }).addTo(map);
-                marker.bindPopup(buildPopupHtml(order));
-                markersMap[order.id] = marker;
-                bounds.push([order.lat, order.lng]);
+                // Замовлення без точки доставки (координати 0,0) на мапу не ставимо - лише в список
+                const hasPoint = !(order.lat === 0 && order.lng === 0);
+                let marker = null;
+                if (hasPoint) {
+                    marker = L.marker([order.lat, order.lng], { icon }).addTo(map);
+                    marker.bindPopup(buildPopupHtml(order));
+                    markersMap[order.id] = marker;
+                    bounds.push([order.lat, order.lng]);
+                }
 
                 const card = document.createElement('div');
                 card.className = 'card bg-black border-secondary rounded-0 p-2 text-white order-card-item';
                 card.innerHTML = `
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                        <strong class="small">#${order.id} — ${order.user}</strong>
+                        <strong class="small">#${order.id} — ${esc(order.user)}</strong>
                         ${getStatusBadge(order.status)}
                     </div>
-                    <div class="text-secondary small text-truncate">📍 ${order.address}</div>
+                    <div class="text-secondary small text-truncate">📍 ${esc(order.address)}${hasPoint ? '' : ' <span class="text-warning">(без координат)</span>'}</div>
                     <div class="d-flex justify-content-between align-items-center mt-1 small">
-                        <span class="text-white-50">${order.paymentMethod}</span>
+                        <span class="text-white-50">${esc(order.paymentMethod)}</span>
                         <strong class="text-success">${Number(order.total).toFixed(2)} $</strong>
                     </div>
                 `;
                 card.addEventListener('click', () => {
+                    if (!marker) return;
                     map.flyTo([order.lat, order.lng], 14, { duration: 0.8 });
                     marker.openPopup();
                 });
@@ -202,6 +211,7 @@
 
         window.resetFilters = function () {
             document.getElementById('statusFilter').value = 'all';
+            document.getElementById('cityFilter').value = 'all';
             document.getElementById('paymentFilter').value = 'all';
             document.getElementById('searchFilter').value = '';
             document.getElementById('minTotalFilter').value = '';
@@ -213,7 +223,7 @@
             try {
                 const res = await fetch('/Orders/UpdateStatus', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value },
                     body: JSON.stringify({ orderId: orderId, status: newStatus })
                 });
                 if (res.ok) {

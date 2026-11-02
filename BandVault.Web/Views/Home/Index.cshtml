@@ -1,5 +1,5 @@
 ﻿@model IEnumerable<BandVault.Web.Models.Post>
-@using Markdig
+@using BandVault.Web.Services
 
 @{
     ViewData["Title"] = ViewBag.BandName;
@@ -209,7 +209,7 @@
                                 <h4 class="card-title fw-bold text-uppercase mb-3">@post.Title</h4>
 
                                 <div class="home-preview-wrapper text-light opacity-75">
-                                    @Html.Raw(Markdown.ToHtml(post.ContentMarkdown ?? "", new MarkdownPipelineBuilder().UseAdvancedExtensions().Build()))
+                                    @MarkdownRenderer.ToHtml(post.ContentMarkdown)
                                     <div class="home-preview-fade"></div>
                                 </div>
                                 <a asp-controller="Posts" asp-action="Details" asp-route-id="@post.Id" class="btn btn-sm btn-outline-light rounded-0">Читати далі</a>
@@ -240,8 +240,12 @@
         <h3 class="fw-bold text-uppercase text-white mb-3" style="letter-spacing: 2px;">Долучайся до інсайдерів</h3>
         <p class="text-secondary mb-4 meta-text">Залиш свій email, щоб першим дізнаватися про нові поставки мерчу та закриті заходи.</p>
 
-        <form class="d-flex justify-content-center mx-auto mb-4" style="max-width: 500px;" onsubmit="event.preventDefault(); alert('Дякуємо за підписку!');">
-            <input type="email" class="form-control bg-dark border-secondary text-white rounded-0 me-2" placeholder="ТВІЙ EMAIL..." required style="letter-spacing: 1px;">
+        @if (TempData["NewsletterMessage"] is string newsletterMessage)
+        {
+            <p class="meta-text text-success mb-3">@newsletterMessage</p>
+        }
+        <form asp-controller="Home" asp-action="Subscribe" method="post" class="d-flex justify-content-center mx-auto mb-4" style="max-width: 500px;">
+            <input type="email" name="email" class="form-control bg-dark border-secondary text-white rounded-0 me-2" placeholder="ТВІЙ EMAIL..." required maxlength="256" style="letter-spacing: 1px;">
             <button type="submit" class="btn btn-light rounded-0 text-uppercase fw-bold px-4" style="letter-spacing: 1px;">Підписатися</button>
         </form>
 
@@ -272,7 +276,7 @@
             </div>
 
             <div class="modal-body p-5">
-                <div class="row row-cols-1 row-cols-md-3 g-4 justify-content-center">
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4 justify-content-center">
 
                     @if (ViewBag.Tiers != null)
                     {
@@ -293,7 +297,14 @@
                                         <p class="text-secondary meta-text mb-4">TIER @tier.Level</p>
 
                                         <h2 class="fw-bold mb-4">
-                                            @tier.Price.ToString("0.00")<span style="font-size: 1rem; color: #888;"> $ / МІС</span>
+                                            @if (tier.Price > 0)
+                                            {
+                                                @tier.Price.ToString("0.00")<span style="font-size: 1rem; color: #888;"> $ / МІС</span>
+                                            }
+                                            else
+                                            {
+                                                <span>БЕЗКОШТОВНО</span>
+                                            }
                                         </h2>
 
                                         <ul class="list-unstyled text-start mb-4 flex-grow-1">

@@ -1,0 +1,273 @@
+@{
+    ViewData["Title"] = "Стіна автографів";
+}
+
+<style>
+    .board-wrap {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        background-color: #0a0a0a;
+        border: 1px solid #6c757d;
+        overflow: hidden;
+        touch-action: none;
+    }
+
+    #board {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        cursor: crosshair;
+    }
+
+    .remote-cursor {
+        position: absolute;
+        pointer-events: none;
+        transform: translate(-4px, -4px);
+        transition: left 0.08s linear, top 0.08s linear;
+        z-index: 2;
+    }
+
+        .remote-cursor .dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            border: 1px solid #000;
+        }
+
+        .remote-cursor .label {
+            font-size: 0.65rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: #000;
+            border: 1px solid #333;
+            padding: 1px 5px;
+            margin-top: 2px;
+            white-space: nowrap;
+        }
+
+    .swatch {
+        width: 26px;
+        height: 26px;
+        border: 1px solid #333;
+        cursor: pointer;
+    }
+
+        .swatch.active {
+            outline: 2px solid #fff;
+            outline-offset: 2px;
+        }
+</style>
+
+<div class="container my-5">
+    <div class="d-flex justify-content-between align-items-end mb-4 border-bottom border-secondary pb-2 flex-wrap gap-3">
+        <h3 class="section-title border-0 mb-0 pb-0">Стіна автографів фан-клубу</h3>
+        <span class="meta-text mb-0">ОНЛАЙН: <strong id="onlineList" class="text-white">—</strong></span>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+        <div class="d-flex gap-2" id="palette">
+            <div class="swatch active" data-color="#ffffff" style="background:#ffffff"></div>
+            <div class="swatch" data-color="#ffc107" style="background:#ffc107"></div>
+            <div class="swatch" data-color="#dc3545" style="background:#dc3545"></div>
+            <div class="swatch" data-color="#0dcaf0" style="background:#0dcaf0"></div>
+            <div class="swatch" data-color="#198754" style="background:#198754"></div>
+            <div class="swatch" data-color="#6f42c1" style="background:#6f42c1"></div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <label class="meta-text mb-0" for="brushSize">ПЕНЗЕЛЬ</label>
+            <input type="range" id="brushSize" min="1" max="30" value="4" class="form-range" style="width: 120px;" />
+        </div>
+        <button type="button" id="eraserBtn" class="btn btn-sm btn-outline-light rounded-0 text-uppercase">Гумка</button>
+        <button type="button" id="downloadBtn" class="btn btn-sm btn-outline-secondary rounded-0 text-uppercase">Зберегти PNG</button>
+        @if (ViewBag.IsAdmin)
+        {
+            <button type="button" id="clearBtn" class="btn btn-sm btn-outline-danger rounded-0 text-uppercase">Очистити для всіх</button>
+        }
+        <span id="boardStatus" class="meta-text mb-0 ms-auto text-secondary">ПІДКЛЮЧЕННЯ...</span>
+    </div>
+
+    <div class="board-wrap" id="boardWrap">
+        <canvas id="board"></canvas>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const wrap = document.getElementById('boardWrap');
+            const canvas = document.getElementById('board');
+            const ctx = canvas.getContext('2d');
+            const status = document.getElementById('boardStatus');
+
+            let color = '#ffffff';
+            let eraser = false;
+            let history = [];
+            const cursors = {};
+
+            function resize() {
+                const ratio = window.devicePixelRatio || 1;
+                canvas.width = wrap.clientWidth * ratio;
+                canvas.height = wrap.clientHeight * ratio;
+                redraw();
+            }
+
+            function drawSegment(seg) {
+                if (!seg.points || seg.points.length === 0) return;
+                const w = canvas.width, h = canvas.height;
+                ctx.save();
+                ctx.globalCompositeOperation = seg.eraser ? 'destination-out' : 'source-over';
+                ctx.strokeStyle = seg.color;
+                ctx.fillStyle = seg.color;
+                ctx.lineWidth = seg.size * (w / 1000);
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                if (seg.points.length === 1) {
+                    ctx.beginPath();
+                    ctx.arc(seg.points[0][0] * w, seg.points[0][1] * h, ctx.lineWidth / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(seg.points[0][0] * w, seg.points[0][1] * h);
+                    for (let i = 1; i < seg.points.length; i++) ctx.lineTo(seg.points[i][0] * w, seg.points[i][1] * h);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            function redraw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                history.forEach(drawSegment);
+            }
+
+            // ---------- SignalR ----------
+            const conn = new signalR.HubConnectionBuilder().withUrl('/boardHub').withAutomaticReconnect().build();
+
+            conn.on('Draw', seg => { history.push(seg); drawSegment(seg); });
+            conn.on('Cleared', by => { history = []; redraw(); status.innerText = 'ДОШКУ ОЧИСТИВ: ' + by.toUpperCase(); });
+            conn.on('Presence', names => { document.getElementById('onlineList').innerText = names.join(', ') || '—'; });
+            conn.on('Cursor', (id, name, x, y, c) => {
+                let el = cursors[id];
+                if (!el) {
+                    el = document.createElement('div');
+                    el.className = 'remote-cursor';
+                    el.innerHTML = '<div class="dot"></div><div class="label"></div>';
+                    wrap.appendChild(el);
+                    cursors[id] = el;
+                }
+                el.querySelector('.dot').style.background = c;
+                el.querySelector('.label').textContent = name;
+                el.style.left = (x * 100) + '%';
+                el.style.top = (y * 100) + '%';
+            });
+            conn.on('CursorLeft', id => { if (cursors[id]) { cursors[id].remove(); delete cursors[id]; } });
+            conn.onreconnecting(() => status.innerText = 'ПЕРЕПІДКЛЮЧЕННЯ...');
+            conn.onreconnected(async () => { history = await conn.invoke('GetHistory'); redraw(); status.innerText = 'ПІДКЛЮЧЕНО'; });
+
+            conn.start()
+                .then(() => conn.invoke('GetHistory'))
+                .then(h => { history = h; resize(); status.innerText = 'ПІДКЛЮЧЕНО'; })
+                .catch(err => { console.error(err); status.innerText = 'ПОМИЛКА ПІДКЛЮЧЕННЯ'; });
+
+            // ---------- Малювання ----------
+            let drawing = false;
+            let strokeId = null;
+            let pending = [];
+            let lastPoint = null;
+            let lastCursorSent = 0;
+
+            function toPoint(e) {
+                const rect = canvas.getBoundingClientRect();
+                return [(e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height];
+            }
+
+            function currentSegment(points) {
+                return { strokeId, color, size: Number(document.getElementById('brushSize').value), eraser, points };
+            }
+
+            // Надсилаємо штрих частинами кожні ~40 мс, щоб інші бачили малювання "наживо"
+            function flush() {
+                if (pending.length === 0) return;
+                const seg = currentSegment(pending);
+                history.push(seg);
+                if (conn.state === 'Connected') conn.invoke('Draw', seg).catch(console.error);
+                pending = [pending[pending.length - 1]];
+            }
+            setInterval(() => { if (drawing && pending.length > 1) flush(); }, 40);
+
+            canvas.addEventListener('pointerdown', e => {
+                drawing = true;
+                canvas.setPointerCapture(e.pointerId);
+                strokeId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+                lastPoint = toPoint(e);
+                pending = [lastPoint];
+                drawSegment(currentSegment([lastPoint]));
+            });
+
+            canvas.addEventListener('pointermove', e => {
+                const p = toPoint(e);
+                const now = Date.now();
+                if (now - lastCursorSent > 50 && conn.state === 'Connected') {
+                    lastCursorSent = now;
+                    conn.invoke('MoveCursor', p[0], p[1], color).catch(() => { });
+                }
+                if (!drawing) return;
+                drawSegment(currentSegment([lastPoint, p]));
+                lastPoint = p;
+                pending.push(p);
+            });
+
+            function endStroke() {
+                if (!drawing) return;
+                drawing = false;
+                if (pending.length === 1) {
+                    // одиночна точка
+                    const seg = currentSegment(pending);
+                    history.push(seg);
+                    if (conn.state === 'Connected') conn.invoke('Draw', seg).catch(console.error);
+                } else {
+                    flush();
+                }
+                pending = [];
+            }
+            canvas.addEventListener('pointerup', endStroke);
+            canvas.addEventListener('pointercancel', endStroke);
+
+            // ---------- Панель інструментів ----------
+            document.querySelectorAll('#palette .swatch').forEach(s => s.addEventListener('click', () => {
+                document.querySelectorAll('#palette .swatch').forEach(x => x.classList.remove('active'));
+                s.classList.add('active');
+                color = s.dataset.color;
+                eraser = false;
+                document.getElementById('eraserBtn').classList.remove('active');
+            }));
+
+            document.getElementById('eraserBtn').addEventListener('click', function () {
+                eraser = !eraser;
+                this.classList.toggle('active', eraser);
+            });
+
+            document.getElementById('downloadBtn').addEventListener('click', () => {
+                const out = document.createElement('canvas');
+                out.width = canvas.width; out.height = canvas.height;
+                const o = out.getContext('2d');
+                o.fillStyle = '#0a0a0a'; o.fillRect(0, 0, out.width, out.height);
+                o.drawImage(canvas, 0, 0);
+                const a = document.createElement('a');
+                a.download = 'bandvault-autographs.png';
+                a.href = out.toDataURL('image/png');
+                a.click();
+            });
+
+            const clearBtn = document.getElementById('clearBtn');
+            if (clearBtn) clearBtn.addEventListener('click', () => {
+                if (confirm('Очистити дошку для всіх учасників?')) conn.invoke('Clear');
+            });
+
+            window.addEventListener('resize', resize);
+            document.addEventListener('turbo:before-render', () => { conn.stop(); window.removeEventListener('resize', resize); }, { once: true });
+            resize();
+        })();
+    </script>
+}

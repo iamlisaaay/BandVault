@@ -7,19 +7,32 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      # Production: без детальних сторінок помилок. Тестовий вхід без пароля - лише якщо явно ввімкнути в .env
+      - ASPNETCORE_ENVIRONMENT=Production
+      - Auth__EnableDevLogin=${ENABLE_DEV_LOGIN:-false}
+      - Api__Key=${API_KEY:-}
+      - TelegramBot__Token=${TELEGRAM_BOT_TOKEN:-}
+      - Authentication__Google__ClientId=${GOOGLE_CLIENT_ID:-}
+      - Authentication__Google__ClientSecret=${GOOGLE_CLIENT_SECRET:-}
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=bandvault_db;Username=bandvault_user;Password=SecretPassword123!
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=bandvault_db;Username=bandvault_user;Password=${POSTGRES_PASSWORD:-SecretPassword123!}
       - ConnectionStrings__Redis=redis:6379
-      - ConnectionStrings__RabbitMQ=amqp://guest:guest@rabbitmq:5672
+      - ConnectionStrings__RabbitMQ=amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
+      # C19: медіа у Blob Storage (Azurite). Контейнер пише через azurite:10000, браузер читає через localhost:10000
+      - Storage__Provider=Blob
+      - ConnectionStrings__AzureBlobStorage=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+      - Storage__PublicBaseUrl=http://localhost:10000/devstoreaccount1
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_started
       rabbitmq:
+        condition: service_healthy
+      azurite:
         condition: service_started
-    # ФІКС: Додано збереження завантажених медіафайлів
+    # Старі медіафайли, завантажені до переходу на Blob Storage
     volumes:
       - web_images:/app/wwwroot/images
       - web_audio:/app/wwwroot/audio
@@ -30,7 +43,7 @@ services:
     container_name: bandvault_postgres
     environment:
       POSTGRES_USER: bandvault_user
-      POSTGRES_PASSWORD: SecretPassword123!
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-SecretPassword123!}
       POSTGRES_DB: bandvault_db
     ports:
       - "5433:5432"
@@ -52,14 +65,31 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: bandvault_rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     ports:
       - "5672:5672"
       - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+
+  # C19: емулятор Azure Blob Storage
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.33.0
+    container_name: bandvault_azurite
+    # --skipApiVersionCheck: свіжий Azure.Storage.Blobs SDK використовує версію API, новішу за Azurite
+    command: azurite-blob --blobHost 0.0.0.0 --blobPort 10000 --loose --skipApiVersionCheck
+    ports:
+      - "10000:10000"
+    volumes:
+      - azurite_data:/data
 
 volumes:
   pgdata:
   web_images:
   web_audio:
   web_uploads:
+  azurite_data:

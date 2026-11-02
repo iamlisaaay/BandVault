@@ -40,7 +40,7 @@
                         {
                             <tr>
                                 <td class="d-flex align-items-center gap-3 border-0 py-3">
-                                    <img src="@(item.ImageUrl ?? "https://via.placeholder.com/50/111/fff?text=BV")" alt="Cover" style="width: 55px; height: 55px; object-fit: cover;" class="border border-secondary">
+                                    <img src="@(item.ImageUrl ?? BandVault.Web.Services.AvatarPlaceholder.For(item.Title, 50))" alt="Cover" style="width: 55px; height: 55px; object-fit: cover;" class="border border-secondary">
                                     <a asp-controller="Merch" asp-action="Details" asp-route-id="@item.MerchItemId" class="fw-bold text-white text-uppercase text-decoration-none" style="font-size: 0.9rem;">
                                         @item.Title
                                     </a>
@@ -63,7 +63,10 @@
                                 </td>
                                 <td class="text-end border-0 text-success fw-bold">@((item.Price * item.Quantity).ToString("0.00")) $</td>
                                 <td class="text-end border-0">
-                                    <a asp-action="RemoveFromCart" asp-route-merchId="@item.MerchItemId" class="btn btn-sm btn-outline-danger border-0 rounded-0" data-turbo="false" title="Видалити">✕</a>
+                                    <form asp-action="RemoveFromCart" method="post" class="d-inline m-0" data-turbo="false">
+                                        <input type="hidden" name="merchId" value="@item.MerchItemId" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger border-0 rounded-0" title="Видалити">✕</button>
+                                    </form>
                                 </td>
                             </tr>
                         }

@@ -23,6 +23,7 @@ namespace BandVault.Web.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Post> Posts { get; set; }
+        public DbSet<NewsletterSubscriber> NewsletterSubscribers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -68,6 +69,17 @@ namespace BandVault.Web.Data
                 .WithMany(u => u.Orders)
                 .HasForeignKey(o => o.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Видалення товару не повинне стирати рядки з історичних замовлень
+            modelBuilder.Entity<OrderItem>()
+                .HasOne(oi => oi.MerchItem)
+                .WithMany()
+                .HasForeignKey(oi => oi.MerchItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<NewsletterSubscriber>()
+                .HasIndex(s => s.Email)
+                .IsUnique();
 
             modelBuilder.Entity<Post>()
                 .HasOne(p => p.Author)

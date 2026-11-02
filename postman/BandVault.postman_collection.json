@@ -1,0 +1,192 @@
+{
+  "info": {
+    "name": "BandVault API (повна)",
+    "description": "C5/B1/QA1: CRUD мерчу та релізів, пагінація, коди статусів. B4: пошук Lucene. C10: залишки. Запуск: newman run BandVault.postman_collection.json --env-var baseUrl=http://localhost:5088 --env-var apiKey=dev-bandvault-api-key",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5088" },
+    { "key": "apiKey", "value": "dev-bandvault-api-key" },
+    { "key": "merchId", "value": "" },
+    { "key": "releaseId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Мерч",
+      "item": [
+        {
+          "name": "Create merch (401 без API-ключа)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"No key\",\n  \"description\": \"x\",\n  \"price\": 10,\n  \"categoryId\": 1\n}" },
+            "url": "{{baseUrl}}/api/merch"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('401 Unauthorized без ключа', () => pm.response.to.have.status(401));"
+          ] } }]
+        },
+        {
+          "name": "Create merch (400 валідація)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"\",\n  \"description\": \"\",\n  \"price\": -5,\n  \"categoryId\": 1\n}" },
+            "url": "{{baseUrl}}/api/merch"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+            "pm.test('Є помилки для Title, Description, Price', () => {",
+            "  const errors = pm.response.json().errors;",
+            "  pm.expect(errors).to.have.property('Title');",
+            "  pm.expect(errors).to.have.property('Description');",
+            "  pm.expect(errors).to.have.property('Price');",
+            "});"
+          ] } }]
+        },
+        {
+          "name": "Create merch (201)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Postman Tote Bag\",\n  \"description\": \"Шопер з логотипом\",\n  \"price\": 20,\n  \"fanPrice\": 15,\n  \"stockQuantity\": 50,\n  \"categoryId\": 2\n}" },
+            "url": "{{baseUrl}}/api/merch"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "pm.test('Location вказує на новий ресурс', () => pm.expect(pm.response.headers.get('Location')).to.match(/\\/api\\/merch\\/\\d+$/));",
+            "const body = pm.response.json();",
+            "pm.test('Тіло містить id і назву', () => { pm.expect(body.id).to.be.a('number'); pm.expect(body.title).to.eql('Postman Tote Bag'); });",
+            "pm.collectionVariables.set('merchId', body.id);"
+          ] } }]
+        },
+        {
+          "name": "Get merch by id (200)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/merch/{{merchId}}" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "pm.test('Правильний товар', () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('merchId'))));"
+          ] } }]
+        },
+        {
+          "name": "Update merch (204)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"id\": {{merchId}},\n  \"title\": \"Postman Tote Bag v2\",\n  \"description\": \"Оновлений шопер\",\n  \"price\": 22,\n  \"stockQuantity\": 40,\n  \"categoryId\": 2\n}" },
+            "url": "{{baseUrl}}/api/merch/{{merchId}}"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+          ] } }]
+        },
+        {
+          "name": "Update merch (400 ID mismatch)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"id\": 999999,\n  \"title\": \"x\",\n  \"description\": \"x\",\n  \"price\": 1,\n  \"categoryId\": 1\n}" },
+            "url": "{{baseUrl}}/api/merch/{{merchId}}"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+          ] } }]
+        },
+        {
+          "name": "List merch paginated (skip/limit/nextLink)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/merch?skip=0&limit=1" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Поля пагінації', () => ['totalItems','totalPages','currentPage','pageSize','skip','limit','nextLink','data'].forEach(k => pm.expect(json).to.have.property(k)));",
+            "pm.test('Не більше limit елементів', () => pm.expect(json.data.length).to.be.at.most(1));",
+            "pm.test('nextLink є, якщо елементів більше за limit', () => { if (json.totalItems > 1) pm.expect(json.nextLink).to.include('skip=1'); else pm.expect(json.nextLink).to.be.null; });"
+          ] } }]
+        },
+        {
+          "name": "Delete merch (204)",
+          "request": { "method": "DELETE", "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }], "url": "{{baseUrl}}/api/merch/{{merchId}}" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+          ] } }]
+        },
+        {
+          "name": "Get deleted merch (404)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/merch/{{merchId}}" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Релізи",
+      "item": [
+        {
+          "name": "Create release (201)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Postman EP\",\n  \"description\": \"Тестовий реліз\",\n  \"releaseDate\": \"2026-10-01T00:00:00Z\",\n  \"genreId\": 1\n}" },
+            "url": "{{baseUrl}}/api/releases"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('releaseId', pm.response.json().id);"
+          ] } }]
+        },
+        {
+          "name": "List releases (200)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/releases?limit=5" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "pm.test('data - масив', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+          ] } }]
+        },
+        {
+          "name": "Delete release (204)",
+          "request": { "method": "DELETE", "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }], "url": "{{baseUrl}}/api/releases/{{releaseId}}" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Пошук (B4) та залишки (C10)",
+      "item": [
+        {
+          "name": "Search (400 без q)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/search" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+          ] } }]
+        },
+        {
+          "name": "Search by prefix (200)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/search?q=pos&limit=5" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "pm.test('Структура відповіді', () => { const j = pm.response.json(); pm.expect(j).to.have.property('total'); pm.expect(j.data).to.be.an('array'); });"
+          ] } }]
+        },
+        {
+          "name": "Stock snapshot (ETag)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/stock" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "pm.test('Є ETag і version', () => { pm.expect(pm.response.headers.get('ETag')).to.be.ok; pm.expect(pm.response.json()).to.have.property('version'); });",
+            "pm.collectionVariables.set('stockEtag', pm.response.headers.get('ETag'));"
+          ] } }]
+        },
+        {
+          "name": "Stock not modified (304)",
+          "request": { "method": "GET", "header": [{ "key": "If-None-Match", "value": "{{stockEtag}}" }], "url": "{{baseUrl}}/api/stock" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('304 Not Modified', () => pm.response.to.have.status(304));"
+          ] } }]
+        }
+      ]
+    }
+  ]
+}

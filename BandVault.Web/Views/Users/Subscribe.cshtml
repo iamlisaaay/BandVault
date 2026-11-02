@@ -1,0 +1,43 @@
+@model BandVault.Web.Models.SubscriptionTier
+@{
+    ViewData["Title"] = "Підписка " + Model.Name;
+}
+
+<div class="container my-5" style="max-width: 560px;">
+    <div class="card bg-transparent border-secondary rounded-0 text-white p-4 p-md-5">
+        <p class="meta-text">ОФОРМЛЕННЯ ПІДПИСКИ</p>
+        <h2 class="fw-bold text-uppercase mb-1" style="letter-spacing: 2px;">@Model.Name</h2>
+        <p class="text-secondary meta-text mb-4">TIER @Model.Level</p>
+
+        <ul class="list-unstyled mb-4">
+            @foreach (var feature in Model.Features)
+            {
+                <li class="mb-2 text-light" style="font-size: 0.9rem;"><span class="text-success me-2">✓</span>@feature.Description</li>
+            }
+        </ul>
+
+        <div class="d-flex justify-content-between align-items-end border-top border-secondary pt-3 mb-4">
+            <span class="meta-text mb-0">ДО СПЛАТИ ЩОМІСЯЦЯ</span>
+            <span class="fs-3 fw-bold">@Model.Price.ToString("0.00") $</span>
+        </div>
+
+        @if (TempData["SubscribeError"] is string error)
+        {
+            <div class="alert bg-dark border-danger text-danger rounded-0 meta-text">@error</div>
+        }
+
+        <form asp-action="ConfirmSubscribe" method="post" data-turbo="false">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <div class="form-check mb-4">
+                <input class="form-check-input bg-dark border-secondary rounded-0" type="checkbox" name="acceptTerms" value="true" id="acceptTerms">
+                <label class="form-check-label text-light" for="acceptTerms" style="font-size: 0.9rem;">
+                    Погоджуюсь з умовами підписки та щомісячним списанням
+                </label>
+            </div>
+            <button type="submit" class="btn btn-light rounded-0 text-uppercase fw-bold w-100 py-3" style="letter-spacing: 2px;">Оплатити (демо)</button>
+            <p class="meta-text text-center mt-3 mb-0">ДЕМО-РЕЖИМ: РЕАЛЬНЕ СПИСАННЯ КОШТІВ НЕ ВІДБУВАЄТЬСЯ</p>
+        </form>
+
+        <a href="/" class="btn btn-outline-secondary rounded-0 text-uppercase mt-3">Скасувати</a>
+    </div>
+</div>

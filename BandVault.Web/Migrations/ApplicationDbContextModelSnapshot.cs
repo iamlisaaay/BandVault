@@ -123,6 +123,30 @@ namespace BandVault.Web.Migrations
                     b.ToTable("MerchItems");
                 });
 
+            modelBuilder.Entity("BandVault.Web.Models.NewsletterSubscriber", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("SubscribedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.ToTable("NewsletterSubscribers");
+                });
+
             modelBuilder.Entity("BandVault.Web.Models.Order", b =>
                 {
                     b.Property<int>("Id")
@@ -474,7 +498,7 @@ namespace BandVault.Web.Migrations
                     b.HasOne("BandVault.Web.Models.MerchItem", "MerchItem")
                         .WithMany()
                         .HasForeignKey("MerchItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("BandVault.Web.Models.Order", "Order")

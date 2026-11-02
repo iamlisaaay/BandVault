@@ -12,6 +12,11 @@
         }
     </div>
 
+    @if (TempData["MerchMessage"] is string merchMessage)
+    {
+        <div class="alert bg-dark border-warning text-warning rounded-0 meta-text">@merchMessage</div>
+    }
+
     <div class="position-relative mb-5 w-50 mx-auto">
         <input type="text" id="merchSearchInput" class="form-control bg-transparent border-secondary text-white rounded-0" placeholder="ПОШУК ТОВАРУ (ВІД 3 СИМВОЛІВ)..." autocomplete="off" style="letter-spacing: 1px; font-size: 0.9rem;" />
         <ul id="searchResults" class="list-group d-none position-absolute w-100 mt-1 rounded-0 border border-secondary" style="z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.5); background-color: #1a1a1a;"></ul>
@@ -36,7 +41,7 @@
                     <div class="card-body pb-1">
                         <h5 class="card-title fw-bold text-truncate" title="@item.Title">@item.Title</h5>
                         <p class="card-text mb-1 meta-text">КАТЕГОРІЯ: @(item.Category?.Name ?? "НЕМАЄ")</p>
-                        @if (ViewBag.UserTier > 0 && item.FanPrice.HasValue)
+                        @if (ViewBag.FanPrices == true && item.FanPrice.HasValue)
                         {
                             <p class="card-text mb-1 meta-text">
                                 ЦІНА: <s class="text-secondary">@item.Price.ToString("0.00") $</s>
@@ -121,6 +126,7 @@
 
             let debounceTimer;
             let currentController = null;
+            const escapeHTML = str => String(str).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
 
             searchInput.addEventListener('input', function () {
                 const query = searchInput.value.trim();
@@ -154,13 +160,13 @@
                                     const li = document.createElement('li');
                                     li.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center bg-dark border-bottom border-secondary text-white rounded-0 py-3 search-result-item';
                                     const price = item.price ? item.price.toFixed(2) : '0.00';
-                                    const imageUrl = item.imageUrl || 'https://via.placeholder.com/50/111/fff?text=BV';
+                                    const imageUrl = escapeHTML(item.imageUrl || '/favicon.ico');
 
                                     li.innerHTML = `
                                         <div class="d-flex align-items-center gap-3 w-100">
                                             <img src="${imageUrl}" alt="Cover" style="width: 40px; height: 40px; object-fit: cover;" class="border border-secondary">
                                             <div class="flex-grow-1 overflow-hidden">
-                                                <h6 class="mb-0 fw-bold text-truncate">${item.title || 'Без назви'}</h6>
+                                                <h6 class="mb-0 fw-bold text-truncate">${escapeHTML(item.title || 'Без назви')}</h6>
                                                 <small class="meta-text text-secondary">${price} $</small>
                                             </div>
                                         </div>
@@ -183,13 +189,16 @@
                 }, 300);
             });
 
-            document.body.addEventListener('mousedown', function (e) {
+            // Один глобальний слухач на всю сесію (Turbo не перезавантажує body)
+            if (window.merchSearchOutsideHandler) document.removeEventListener('mousedown', window.merchSearchOutsideHandler);
+            window.merchSearchOutsideHandler = function (e) {
                 const results = document.getElementById('searchResults');
                 const input = document.getElementById('merchSearchInput');
                 if (results && input && !input.contains(e.target) && !results.contains(e.target)) {
                     results.classList.add('d-none');
                 }
-            });
+            };
+            document.addEventListener('mousedown', window.merchSearchOutsideHandler);
 
             searchInput.addEventListener('focus', function() {
                 if (this.value.trim().length >= 3 && searchResults.innerHTML.trim() !== '') {
@@ -204,14 +213,7 @@
             initMerchSearch();
         }
 
+        // turbo:load спрацьовує і при Turbo-навігації, тож MutationObserver не потрібен
         document.addEventListener("turbo:load", initMerchSearch);
-
-        const observer = new MutationObserver(function() {
-            if (document.getElementById('merchSearchInput') &&
-                document.getElementById('merchSearchInput').dataset.initialized !== "true") {
-                initMerchSearch();
-            }
-        });
-        observer.observe(document.body, { childList: true, subtree: true });
     </script>
 }
