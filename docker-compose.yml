@@ -7,9 +7,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # Production: без детальних сторінок помилок. Тестовий вхід без пароля - лише якщо явно ввімкнути в .env
+      # Production: без детальних сторінок помилок. Вхід - лише через Google OAuth2
       - ASPNETCORE_ENVIRONMENT=Production
-      - Auth__EnableDevLogin=${ENABLE_DEV_LOGIN:-false}
       - Api__Key=${API_KEY:-}
       - TelegramBot__Token=${TELEGRAM_BOT_TOKEN:-}
       - Authentication__Google__ClientId=${GOOGLE_CLIENT_ID:-}
@@ -22,7 +21,10 @@ services:
       - Storage__Provider=Blob
       - ConnectionStrings__AzureBlobStorage=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
       - Storage__PublicBaseUrl=http://localhost:10000/devstoreaccount1
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # C21: безкоштовна модель. За замовчуванням - Ollama з сервісу нижче (docker compose --profile ai up -d)
+      - Assistant__BaseUrl=${ASSISTANT_BASE_URL:-http://ollama:11434/v1}
+      - Assistant__Model=${ASSISTANT_MODEL:-qwen3:4b}
+      - Assistant__ApiKey=${ASSISTANT_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
@@ -87,8 +89,19 @@ services:
     volumes:
       - azurite_data:/data
 
+  # C21: локальна безкоштовна LLM (запускається лише з профілем ai). Модель: docker exec bandvault_ollama ollama pull qwen3:4b
+  ollama:
+    image: ollama/ollama:0.6.8
+    container_name: bandvault_ollama
+    profiles: ["ai"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+
 volumes:
   pgdata:
+  ollama_models:
   web_images:
   web_audio:
   web_uploads:

@@ -3,65 +3,49 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using BandVault.Web.Data;
-using BandVault.Web.Models;
 using BandVault.Web.Services;
 
 namespace BandVault.Web.Controllers
 {
+    // C16: вхід і реєстрація лише через Google OAuth2 (без входу за самим email без пароля)
     public class AuthController : Controller
     {
-        private readonly ApplicationDbContext _context;
         private readonly IConfiguration _config;
-        private readonly IWebHostEnvironment _env; // Додано для перевірки режиму
+        private readonly UserSignInService _signIn;
 
-        public AuthController(ApplicationDbContext context, IConfiguration config, IWebHostEnvironment env)
+        public AuthController(IConfiguration config, UserSignInService signIn)
         {
-            _context = context;
             _config = config;
-            _env = env;
+            _signIn = signIn;
         }
-
-        // Тестовий вхід без пароля: за замовчуванням лише в Development, явно - Auth:EnableDevLogin
-        public static bool DevLoginEnabled(IConfiguration config, IWebHostEnvironment env) =>
-            config.GetValue<bool?>("Auth:EnableDevLogin") ?? env.IsDevelopment();
 
         public static bool GoogleConfigured(IConfiguration config) =>
             !string.IsNullOrWhiteSpace(config["Authentication:Google:ClientId"]) && !string.IsNullOrWhiteSpace(config["Authentication:Google:ClientSecret"]);
 
         [HttpGet]
-        public IActionResult Login()
+        public IActionResult Login(string returnUrl = "/")
         {
             // Якщо користувач вже авторизований, не показуємо йому сторінку логіну
             if (User.Identity != null && User.Identity.IsAuthenticated)
             {
                 return RedirectToAction("Index", "Home");
             }
+            ViewBag.ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : "/";
             return View();
         }
 
         // ============================================
-        // 1. ВХІД ЧЕРЕЗ EMAIL (Для тестів та локальної розробки)
+        // GOOGLE OAUTH2 (C16)
         // ============================================
         [HttpPost]
-        public async Task<IActionResult> Login(string email)
-        {
-            // ФІКС 405: Дозволяємо цей метод тільки при локальній розробці
-            if (!DevLoginEnabled(_config, _env)) return Forbid();
-
-            if (string.IsNullOrWhiteSpace(email)) return View();
-
-            return await ProcessUserLogin(email.Trim().ToLower(), null, null, "/");
-        }
-
-        // ============================================
-        // 2. GOOGLE OAUTH2 ЛОГІКА (C16)
-        // ============================================
-        [HttpPost]
+        [ValidateAntiForgeryToken]
         public IActionResult ExternalLogin(string returnUrl = "/")
         {
-            if (!GoogleConfigured(_config)) return RedirectToAction(nameof(Login));
+            if (!GoogleConfigured(_config))
+            {
+                TempData["LoginError"] = "Вхід через Google ще не налаштовано: адміністратору потрібно додати Authentication:Google:ClientId та ClientSecret.";
+                return RedirectToAction(nameof(Login));
+            }
             var redirectUrl = Url.Action(nameof(ExternalLoginCallback), "Auth", new { returnUrl });
             var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
             return Challenge(properties, GoogleDefaults.AuthenticationScheme);
@@ -74,6 +58,7 @@ namespace BandVault.Web.Controllers
 
             if (!result.Succeeded || result.Principal == null)
             {
+                TempData["LoginError"] = "Google не підтвердив вхід. Спробуйте ще раз.";
                 return RedirectToAction(nameof(Login));
             }
 
@@ -84,90 +69,13 @@ namespace BandVault.Web.Controllers
 
             if (string.IsNullOrEmpty(email))
             {
+                TempData["LoginError"] = "Google не передав email акаунта.";
                 return RedirectToAction(nameof(Login));
             }
 
-            return await ProcessUserLogin(email.ToLower(), name, avatar, returnUrl);
-        }
+            await _signIn.SignInAsync(HttpContext, email, name, avatar);
 
-        // ============================================
-        // 3. СПІЛЬНИЙ МЕТОД ДЛЯ СТВОРЕННЯ/ОНОВЛЕННЯ ЮЗЕРА
-        // ============================================
-        private async Task<IActionResult> ProcessUserLogin(string userEmail, string? displayName, string? avatarUrl, string returnUrl)
-        {
-            var superAdminEmail = _config["AdminSettings:SuperAdminEmail"]?.ToLower() ?? "danchenko_anastasiia@knu.ua";
-            bool isSuperAdmin = userEmail == superAdminEmail;
-
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userEmail);
-
-            if (user == null)
-            {
-                var lowestTier = await _context.SubscriptionTiers.OrderBy(t => t.Level).FirstOrDefaultAsync();
-                var highestTier = await _context.SubscriptionTiers.OrderByDescending(t => t.Level).FirstOrDefaultAsync();
-
-                int guestTierId = lowestTier?.Id ?? 1;
-                int adminTierId = highestTier?.Id ?? 1;
-
-                user = new User
-                {
-                    Email = userEmail,
-                    DisplayName = displayName ?? userEmail.Split('@')[0],
-                    IsAdmin = isSuperAdmin,
-                    SubscriptionTierId = isSuperAdmin ? adminTierId : guestTierId,
-                    AvatarUrl = avatarUrl,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync();
-            }
-            else
-            {
-                bool needsUpdate = false;
-
-                if (isSuperAdmin && !user.IsAdmin)
-                {
-                    var highestTier = await _context.SubscriptionTiers.OrderByDescending(t => t.Level).FirstOrDefaultAsync();
-                    user.IsAdmin = true;
-                    if (highestTier != null)
-                    {
-                        user.SubscriptionTierId = highestTier.Id;
-                    }
-                    needsUpdate = true;
-                }
-
-                if (string.IsNullOrEmpty(user.AvatarUrl) && !string.IsNullOrEmpty(avatarUrl))
-                {
-                    user.AvatarUrl = avatarUrl;
-                    needsUpdate = true;
-                }
-
-                if (needsUpdate)
-                {
-                    await _context.SaveChangesAsync();
-                }
-            }
-
-            var userClaims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Name, user.Email),
-                new Claim("UserId", user.Id.ToString()),
-                new Claim("DisplayName", user.DisplayName ?? user.Email.Split('@')[0]),
-                new Claim("IsAdmin", user.IsAdmin.ToString().ToLower()),
-                new Claim("AvatarUrl", user.AvatarUrl ?? AvatarPlaceholder.For(user.DisplayName ?? user.Email))
-            };
-
-            var identity = new ClaimsIdentity(userClaims, CookieAuthenticationDefaults.AuthenticationScheme);
-            var principal = new ClaimsPrincipal(identity);
-
-            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
-
-            if (Url.IsLocalUrl(returnUrl))
-            {
-                return LocalRedirect(returnUrl);
-            }
-
-            return RedirectToAction("Index", "Home");
+            return Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : RedirectToAction("Index", "Home");
         }
 
         [HttpPost]

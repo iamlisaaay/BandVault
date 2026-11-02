@@ -151,14 +151,17 @@ namespace BandVault.Tests
         }
 
         [Fact]
-        public async Task DevLogin_IsDisabledOutsideDevelopment()
+        public async Task PasswordlessEmailLogin_DoesNotExist()
         {
-            var production = _factory.WithWebHostBuilder(b => b.UseEnvironment("Production"));
-            var client = production.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+            // У будь-якому середовищі увійти лише за email (без Google) неможливо
+            var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
             var response = await client.PostAsync("/Auth/Login", new FormUrlEncodedContent(new Dictionary<string, string> { ["email"] = "hacker@test.ua" }));
-            Assert.NotEqual(HttpStatusCode.OK, response.StatusCode);
             var cookies = response.Headers.TryGetValues("Set-Cookie", out var values) ? values : Array.Empty<string>();
             Assert.DoesNotContain(cookies, c => c.StartsWith(".AspNetCore.Cookies"));
+
+            var loginPage = await (await client.GetAsync("/Auth/Login")).Content.ReadAsStringAsync();
+            Assert.DoesNotContain("name=\"email\"", loginPage);
+            Assert.Contains("УВІЙТИ ЧЕРЕЗ GOOGLE", loginPage);
         }
     }
 }

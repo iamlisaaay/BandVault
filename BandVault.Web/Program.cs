@@ -102,6 +102,9 @@ namespace BandVault.Web
             builder.Services.AddSingleton<CatalogChangeNotifier>();
             builder.Services.AddMemoryCache();
 
+            // C16: створення користувача та вхід після підтвердження особи Google
+            builder.Services.AddScoped<UserSignInService>();
+
             // B6: feature flags на основі плану підписки
             builder.Services.AddHttpContextAccessor();
             builder.Services.AddScoped<FeatureFlags>();
@@ -118,6 +121,16 @@ namespace BandVault.Web
 
             // C21/C22: інструменти каталогу для ШІ-агента та MCP-сервера
             builder.Services.AddScoped<CatalogTools>();
+
+            // C21: безкоштовна модель через OpenAI-сумісний API (за замовчуванням локальна Ollama)
+            var assistantOptions = builder.Configuration.GetSection("Assistant").Get<BandVault.Web.Services.Assistant.AssistantOptions>()
+                ?? new BandVault.Web.Services.Assistant.AssistantOptions();
+            builder.Services.AddSingleton(assistantOptions);
+            builder.Services.AddHttpClient<BandVault.Web.Services.Assistant.ChatCompletionsClient>(client =>
+            {
+                // Локальна модель на слабкому ПК може думати довго
+                client.Timeout = TimeSpan.FromMinutes(5);
+            });
             builder.Services.AddMcpServer()
                 .WithHttpTransport()
                 .WithTools<CatalogMcpTools>();

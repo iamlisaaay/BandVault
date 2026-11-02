@@ -1,6 +1,5 @@
-@{
+﻿@{
     ViewData["Title"] = "Асистент фан-клубу";
-    bool configured = ViewBag.Configured;
 }
 
 <style>
@@ -64,12 +63,7 @@
         <span class="meta-text mb-0">ПІДКАЖЕ ПРО МЕРЧ, РЕЛІЗИ ТА НАЯВНІСТЬ</span>
     </div>
 
-    @if (!configured)
-    {
-        <div class="alert bg-dark border-warning text-warning rounded-0 meta-text">
-            АСИСТЕНТ НЕ НАЛАШТОВАНИЙ: ЗАДАЙТЕ Anthropic:ApiKey У USER-SECRETS АБО ЗМІННУ ANTHROPIC_API_KEY.
-        </div>
-    }
+    <p class="meta-text mb-3">МОДЕЛЬ: <span class="text-white">@ViewBag.Model</span> · БЕЗКОШТОВНО (OLLAMA / GEMINI / GROQ)</p>
 
     <div id="chatLog" class="border border-secondary p-3 d-flex flex-column gap-3 mb-3">
         <div class="msg-bot ps-3 text-light">Привіт! Я асистент фан-клубу. Запитай, що є з мерчу, які релізи вийшли або чи залишились худі вашого розміру.</div>

@@ -1,7 +1,7 @@
-﻿using System.Text.Json;
-using Anthropic;
-using Anthropic.Models.Beta;
-using Anthropic.Models.Beta.Messages;
+﻿using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using BandVault.Web.Services.Assistant;
 using BandVault.Web.Services.Catalog;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,30 +9,35 @@ using Microsoft.AspNetCore.Mvc;
 namespace BandVault.Web.Controllers
 {
     // ============================================
-    // C21: ШІ-АСИСТЕНТ ФАН-КЛУБУ
+    // C21: ШІ-АСИСТЕНТ ФАН-КЛУБУ (безкоштовний провайдер: Ollama локально / Gemini / Groq)
     // Відповідь стрімиться на front-end через Server-Sent Events (text/event-stream):
-    //   thinking   - короткі "думки" моделі
-    //   tool_call  - виклик інструменту каталогу (ті самі, що й у MCP-сервері C22)
-    //   tool_result- результат інструменту
-    //   text       - фрагменти відповіді
+    //   thinking    - "думки" моделі (якщо модель їх віддає)
+    //   tool_call   - виклик інструменту каталогу (ті самі, що й у MCP-сервері C22)
+    //   tool_result - результат інструменту
+    //   text        - фрагменти відповіді
     //   done/error
     // ============================================
     [Authorize]
     public class AssistantController : Controller
     {
-        private const string Model = "claude-opus-5-5";
         private const int MaxToolRounds = 6;
 
-        private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
 
         private readonly CatalogTools _tools;
-        private readonly IConfiguration _config;
+        private readonly ChatCompletionsClient _chat;
+        private readonly AssistantOptions _options;
         private readonly ILogger<AssistantController> _logger;
 
-        public AssistantController(CatalogTools tools, IConfiguration config, ILogger<AssistantController> logger)
+        public AssistantController(CatalogTools tools, ChatCompletionsClient chat, AssistantOptions options, ILogger<AssistantController> logger)
         {
             _tools = tools;
-            _config = config;
+            _chat = chat;
+            _options = options;
             _logger = logger;
         }
 
@@ -49,7 +54,8 @@ namespace BandVault.Web.Controllers
 
         public IActionResult Index()
         {
-            ViewBag.Configured = !string.IsNullOrWhiteSpace(ApiKey);
+            ViewBag.Model = _options.Model;
+            ViewBag.Provider = _options.BaseUrl;
             return View();
         }
 
@@ -63,12 +69,6 @@ namespace BandVault.Web.Controllers
 
             var ct = HttpContext.RequestAborted;
 
-            if (string.IsNullOrWhiteSpace(ApiKey))
-            {
-                await SendEventAsync("error", new { message = "Асистент не налаштований: задайте Anthropic:ApiKey (user-secrets) або змінну ANTHROPIC_API_KEY." }, ct);
-                return;
-            }
-
             var history = request.History
                 .Where(t => !string.IsNullOrWhiteSpace(t.Text))
                 .TakeLast(20)
@@ -79,40 +79,52 @@ namespace BandVault.Web.Controllers
                 return;
             }
 
-            var client = new AnthropicClient { ApiKey = ApiKey };
-            var messages = history.Select(t =>
+            var messages = new JsonArray { new JsonObject { ["role"] = "system", ["content"] = SystemPrompt } };
+            foreach (var turn in history)
             {
-                var text = t.Text.Length > 4000 ? t.Text[..4000] : t.Text;
-                return t.Role == "assistant"
-                    ? (BetaMessageParam)new BetaAssistantMessageParam { Content = text }
-                    : new BetaUserMessageParam { Content = text };
-            }).ToList();
+                messages.Add(new JsonObject
+                {
+                    ["role"] = turn.Role == "assistant" ? "assistant" : "user",
+                    ["content"] = turn.Text.Length > 4000 ? turn.Text[..4000] : turn.Text
+                });
+            }
 
             try
             {
                 for (int round = 0; round < MaxToolRounds; round++)
                 {
-                    var turn = await StreamTurnAsync(client, messages, ct);
-
-                    if (turn.StopReason == "refusal")
+                    var result = await _chat.StreamTurnAsync(messages, ToolDefinitions, async ev =>
                     {
-                        await SendEventAsync("error", new { message = "Асистент не може відповісти на цей запит." }, ct);
-                        return;
-                    }
+                        switch (ev)
+                        {
+                            case TextDelta t: await SendEventAsync("text", new { text = t.Text }, ct); break;
+                            case ThinkingDelta th: await SendEventAsync("thinking", new { text = th.Text }, ct); break;
+                        }
+                    }, ct);
 
-                    messages.Add(new BetaAssistantMessageParam { Content = turn.AssistantContent });
-                    if (turn.StopReason != "tool_use" || turn.ToolCalls.Count == 0) break;
+                    if (result.ToolCalls.Count == 0) break;
 
-                    // Виконуємо всі виклики інструментів і повертаємо результати одним повідомленням
-                    var results = new List<BetaContentBlockParam>();
-                    foreach (var call in turn.ToolCalls)
+                    // Повертаємо моделі її виклики та результати інструментів у форматі Chat Completions
+                    messages.Add(new JsonObject
                     {
-                        string result = await ExecuteToolAsync(call.Name, call.InputJson);
-                        bool isError = result.StartsWith("{\"error\"");
-                        await SendEventAsync("tool_result", new { id = call.Id, name = call.Name, result, isError }, ct);
-                        results.Add(new BetaToolResultBlockParam { ToolUseID = call.Id, Content = result, IsError = isError });
+                        ["role"] = "assistant",
+                        ["content"] = result.Text,
+                        ["tool_calls"] = new JsonArray(result.ToolCalls.Select(c => (JsonNode)new JsonObject
+                        {
+                            ["id"] = c.Id,
+                            ["type"] = "function",
+                            ["function"] = new JsonObject { ["name"] = c.Name, ["arguments"] = c.ArgumentsJson }
+                        }).ToArray())
+                    });
+
+                    foreach (var call in result.ToolCalls)
+                    {
+                        await SendEventAsync("tool_call", new { id = call.Id, name = call.Name, input = ParseInput(call.ArgumentsJson) }, ct);
+                        string output = await ExecuteToolAsync(call.Name, call.ArgumentsJson);
+                        bool isError = output.StartsWith("{\"error\"");
+                        await SendEventAsync("tool_result", new { id = call.Id, name = call.Name, result = output, isError }, ct);
+                        messages.Add(new JsonObject { ["role"] = "tool", ["tool_call_id"] = call.Id, ["content"] = output });
                     }
-                    messages.Add(new BetaUserMessageParam { Content = results });
                 }
 
                 await SendEventAsync("done", new { }, ct);
@@ -121,128 +133,22 @@ namespace BandVault.Web.Controllers
             {
                 // Користувач закрив сторінку
             }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "Провайдер ШІ недоступний");
+                await SendEventAsync("error", new { message = $"Не вдалося під'єднатися до моделі ({_options.BaseUrl}). Якщо це Ollama - запустіть її та завантажте модель: ollama pull {_options.Model}" }, CancellationToken.None);
+            }
+            catch (ChatProviderException ex)
+            {
+                _logger.LogWarning("Помилка провайдера ШІ: {Message}", ex.Message);
+                await SendEventAsync("error", new { message = ex.Message }, CancellationToken.None);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Помилка ШІ-асистента");
                 await SendEventAsync("error", new { message = "Сервіс ШІ тимчасово недоступний. Спробуйте пізніше." }, CancellationToken.None);
             }
         }
-
-        private record ToolCall(string Id, string Name, string InputJson);
-
-        private record TurnResult(string? StopReason, List<BetaContentBlockParam> AssistantContent, List<ToolCall> ToolCalls);
-
-        private class BlockAccumulator
-        {
-            public string Type = "";
-            public string Id = "";
-            public string Name = "";
-            public System.Text.StringBuilder Text = new();
-            public string Signature = "";
-        }
-
-        // Один запит до моделі зі стрімінгом: фрагменти тексту/думок одразу пересилаємо в браузер,
-        // паралельно збираємо повні блоки, щоб повернути їх у наступному запиті
-        private async Task<TurnResult> StreamTurnAsync(AnthropicClient client, List<BetaMessageParam> messages, CancellationToken ct)
-        {
-            var parameters = new MessageCreateParams
-            {
-                Model = Model,
-                MaxTokens = 16000,
-                System = SystemPrompt,
-                Thinking = new BetaThinkingConfigAdaptive { Display = Display.Summarized },
-                OutputConfig = new BetaOutputConfig { Effort = Effort.Medium },
-                // Якщо класифікатори безпеки відхилять запит, сервер сам перенаправить його на резервну модель
-                Betas = [AnthropicBeta.ServerSideFallback2026_07_01],
-                Fallbacks = new Default(),
-                Tools = ToolDefinitions,
-                Messages = messages,
-            };
-
-            var blocks = new SortedDictionary<long, BlockAccumulator>();
-            string? stopReason = null;
-
-            await foreach (var ev in client.Beta.Messages.CreateStreaming(parameters, ct))
-            {
-                if (ev.TryPickContentBlockStart(out var start))
-                {
-                    var acc = new BlockAccumulator();
-                    if (start.ContentBlock.TryPickBetaText(out _)) acc.Type = "text";
-                    else if (start.ContentBlock.TryPickBetaThinking(out _)) acc.Type = "thinking";
-                    else if (start.ContentBlock.TryPickBetaRedactedThinking(out var redacted)) { acc.Type = "redacted"; acc.Signature = redacted.Data; }
-                    else if (start.ContentBlock.TryPickBetaToolUse(out var toolUse))
-                    {
-                        acc.Type = "tool_use";
-                        acc.Id = toolUse.ID;
-                        acc.Name = toolUse.Name;
-                    }
-                    blocks[start.Index] = acc;
-                }
-                else if (ev.TryPickContentBlockDelta(out var delta) && blocks.TryGetValue(delta.Index, out var block))
-                {
-                    if (delta.Delta.TryPickText(out var text))
-                    {
-                        block.Text.Append(text.Text);
-                        await SendEventAsync("text", new { text = text.Text }, ct);
-                    }
-                    else if (delta.Delta.TryPickThinking(out var thinking))
-                    {
-                        block.Text.Append(thinking.Thinking);
-                        await SendEventAsync("thinking", new { text = thinking.Thinking }, ct);
-                    }
-                    else if (delta.Delta.TryPickSignature(out var signature))
-                    {
-                        block.Signature = signature.Signature;
-                    }
-                    else if (delta.Delta.TryPickInputJson(out var inputJson))
-                    {
-                        block.Text.Append(inputJson.PartialJson);
-                    }
-                }
-                else if (ev.TryPickContentBlockStop(out var stop) && blocks.TryGetValue(stop.Index, out var finished) && finished.Type == "tool_use")
-                {
-                    await SendEventAsync("tool_call", new { id = finished.Id, name = finished.Name, input = ParseInput(finished.Text.ToString()) }, ct);
-                }
-                else if (ev.TryPickDelta(out var messageDelta) && messageDelta.Delta.StopReason != null)
-                {
-                    stopReason = messageDelta.Delta.StopReason.Raw();
-                }
-            }
-
-            var content = new List<BetaContentBlockParam>();
-            var toolCalls = new List<ToolCall>();
-            foreach (var b in blocks.Values)
-            {
-                switch (b.Type)
-                {
-                    case "text" when b.Text.Length > 0:
-                        content.Add(new BetaTextBlockParam { Text = b.Text.ToString() });
-                        break;
-                    case "thinking":
-                        // Підпис обов'язково повертаємо без змін, інакше API відхилить наступний запит
-                        content.Add(new BetaThinkingBlockParam { Thinking = b.Text.ToString(), Signature = b.Signature });
-                        break;
-                    case "redacted":
-                        content.Add(new BetaRedactedThinkingBlockParam { Data = b.Signature });
-                        break;
-                    case "tool_use":
-                        var inputJson = b.Text.Length == 0 ? "{}" : b.Text.ToString();
-                        content.Add(new BetaToolUseBlockParam { ID = b.Id, Name = b.Name, Input = ParseInput(inputJson) });
-                        toolCalls.Add(new ToolCall(b.Id, b.Name, inputJson));
-                        break;
-                }
-            }
-
-            return new TurnResult(NormalizeStopReason(stopReason), content, toolCalls);
-        }
-
-        private static string? NormalizeStopReason(string? raw) => raw switch
-        {
-            null => null,
-            _ when raw.Equals("ToolUse", StringComparison.OrdinalIgnoreCase) || raw == "tool_use" => "tool_use",
-            _ when raw.Equals("Refusal", StringComparison.OrdinalIgnoreCase) => "refusal",
-            _ => raw
-        };
 
         private static Dictionary<string, JsonElement> ParseInput(string json)
         {
@@ -256,13 +162,19 @@ namespace BandVault.Web.Controllers
             }
         }
 
-        // Валідуємо аргументи перед виконанням - модель могла згенерувати неповний JSON
+        // Валідуємо аргументи перед виконанням: невеликі моделі інколи передають числа рядками або неповний JSON
         private async Task<string> ExecuteToolAsync(string name, string inputJson)
         {
             var input = ParseInput(inputJson);
             string? Str(string key) => input.TryGetValue(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
-            int? Int(string key) => input.TryGetValue(key, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i) ? i : null;
-            decimal? Dec(string key) => input.TryGetValue(key, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetDecimal(out var d) ? d : null;
+            decimal? Dec(string key)
+            {
+                if (!input.TryGetValue(key, out var v)) return null;
+                if (v.ValueKind == JsonValueKind.Number && v.TryGetDecimal(out var d)) return d;
+                if (v.ValueKind == JsonValueKind.String && decimal.TryParse(v.GetString()?.Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out var s)) return s;
+                return null;
+            }
+            int? Int(string key) => Dec(key) is decimal d && d == Math.Floor(d) ? (int)d : null;
 
             object result = name switch
             {
@@ -286,18 +198,18 @@ namespace BandVault.Web.Controllers
             await Response.Body.FlushAsync(ct);
         }
 
-        private string? ApiKey => _config["Anthropic:ApiKey"] ?? Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
-
         private string SystemPrompt =>
             "Ти - асистент офіційного фан-клубу музичного гурту на платформі BandVault. " +
             "Відповідай українською, коротко і дружньо. Для питань про мерч, ціни, наявність, релізи та треки " +
-            "користуйся інструментами каталогу, а не вигадуй дані. Посилання на сторінки сайту давай у форматі markdown. " +
+            "обов'язково викликай інструменти каталогу, а не вигадуй дані. Посилання на сторінки сайту давай у форматі markdown, " +
+            "наприклад [Худі](/Merch/Details/1). " +
             (User.HasClaim("IsAdmin", "true")
                 ? "Користувач - адміністратор: він може просити додати товар (create_merch_item); перед створенням коротко підсумуй, що саме додаєш."
                 : "Користувач - фанат, додавати товари він не може.");
 
-        private static BetaToolUnion[] ToolDefinitions =>
-        [
+        // Опис інструментів у форматі Chat Completions (JSON Schema параметрів)
+        private static JsonArray ToolDefinitions => new()
+        {
             Tool("list_merch", "Список товарів мерчу з цінами та залишками. Можна фільтрувати за частиною назви.",
                 new { query = new { type = "string", description = "Частина назви товару" }, limit = new { type = "integer", description = "1-50" } }),
             Tool("get_merch_item", "Повна інформація про товар мерчу за id.",
@@ -315,20 +227,22 @@ namespace BandVault.Web.Controllers
                     category = new { type = "string" },
                     fanPrice = new { type = "number" }
                 }, "title", "description", "price", "stock", "category"),
-        ];
+        };
 
-        private static BetaToolUnion Tool(string name, string description, object properties, params string[] required)
+        private static JsonObject Tool(string name, string description, object properties, params string[] required) => new()
         {
-            var props = JsonSerializer.SerializeToElement(properties)
-                .EnumerateObject()
-                .ToDictionary(p => p.Name, p => p.Value);
-            return new BetaTool
+            ["type"] = "function",
+            ["function"] = new JsonObject
             {
-                Name = name,
-                Description = description,
-                EagerInputStreaming = true,
-                InputSchema = new() { Properties = props, Required = required },
-            };
-        }
+                ["name"] = name,
+                ["description"] = description,
+                ["parameters"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = JsonSerializer.SerializeToNode(properties),
+                    ["required"] = new JsonArray(required.Select(r => (JsonNode)JsonValue.Create(r)!).ToArray())
+                }
+            }
+        };
     }
 }
