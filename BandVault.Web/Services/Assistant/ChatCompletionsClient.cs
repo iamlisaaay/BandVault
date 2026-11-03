@@ -10,16 +10,22 @@ namespace BandVault.Web.Services.Assistant
     public record TextDelta(string Text) : ChatStreamEvent;
     public record ThinkingDelta(string Text) : ChatStreamEvent;
 
-    public record ToolCallRequest(string Id, string Name, string ArgumentsJson);
+    // Extra - службові дані провайдера, які треба повернути разом із викликом
+    // (Gemini 3: extra_content.google.thought_signature, без нього наступний запит отримує 400)
+    public record ToolCallRequest(string Id, string Name, string ArgumentsJson, JsonNode? Extra = null);
 
     public record ChatTurnResult(string Text, IReadOnlyList<ToolCallRequest> ToolCalls, string? FinishReason);
 
     public class AssistantOptions
     {
-        // За замовчуванням - локальна Ollama (безкоштовно, без ключа). Інші безкоштовні варіанти - у docs/IMPLEMENTATION.md
-        public string BaseUrl { get; set; } = "http://localhost:11434/v1";
-        public string Model { get; set; } = "qwen3:4b";
+        // За замовчуванням - Google Gemini (безкоштовний ключ з AI Studio). Інші варіанти (Ollama, Groq) - у docs/IMPLEMENTATION.md
+        public string BaseUrl { get; set; } = "https://generativelanguage.googleapis.com/v1beta/openai";
+        public string Model { get; set; } = "gemini-3.1-flash-lite-preview";
         public string? ApiKey { get; set; }
+        // Просити модель показувати хід міркувань (для Gemini - thinking_config.include_thoughts)
+        public bool IncludeThoughts { get; set; } = true;
+
+        public bool IsGemini => BaseUrl.Contains("generativelanguage.googleapis.com", StringComparison.OrdinalIgnoreCase);
     }
 
     // ============================================
@@ -48,9 +54,17 @@ namespace BandVault.Web.Services.Assistant
                 ["model"] = _options.Model,
                 ["messages"] = messages.DeepClone(),
                 ["tools"] = tools.DeepClone(),
-                ["stream"] = true,
-                ["temperature"] = 0.4
+                ["stream"] = true
+                // temperature не задаємо: Gemini 3 рекомендує значення за замовчуванням (нижче - ризик зациклення)
             };
+            if (_options.IncludeThoughts && _options.IsGemini)
+            {
+                // Gemini повертає підсумок міркувань у тексті між тегами <thought>...</thought>
+                body["extra_body"] = new JsonObject
+                {
+                    ["google"] = new JsonObject { ["thinking_config"] = new JsonObject { ["include_thoughts"] = true } }
+                };
+            }
 
             using var request = new HttpRequestMessage(HttpMethod.Post, _options.BaseUrl.TrimEnd('/') + "/chat/completions")
             {
@@ -69,7 +83,7 @@ namespace BandVault.Web.Services.Assistant
             }
 
             var text = new StringBuilder();
-            var toolCalls = new SortedDictionary<int, (string Id, string Name, StringBuilder Args)>();
+            var toolCalls = new SortedDictionary<int, (string Id, string Name, StringBuilder Args, JsonNode? Extra)>();
             var thinkParser = new ThinkTagParser();
             string? finishReason = null;
 
@@ -112,12 +126,15 @@ namespace BandVault.Web.Services.Assistant
                 {
                     foreach (var call in calls)
                     {
+                        // OpenAI/Ollama надсилають index і дробити аргументи на фрагменти;
+                        // Gemini надсилає кожен виклик цілком і без index
                         int index = call?["index"]?.GetValue<int>() ?? toolCalls.Count;
-                        if (!toolCalls.TryGetValue(index, out var acc)) acc = ("", "", new StringBuilder());
+                        if (!toolCalls.TryGetValue(index, out var acc)) acc = ("", "", new StringBuilder(), null);
                         var id = call?["id"]?.GetValue<string>();
                         var name = call?["function"]?["name"]?.GetValue<string>();
                         var args = call?["function"]?["arguments"]?.GetValue<string>();
-                        acc = (string.IsNullOrEmpty(id) ? acc.Id : id, string.IsNullOrEmpty(name) ? acc.Name : name, acc.Args.Append(args));
+                        var extra = call?["extra_content"]?.DeepClone() ?? acc.Extra;
+                        acc = (string.IsNullOrEmpty(id) ? acc.Id : id, string.IsNullOrEmpty(name) ? acc.Name : name, acc.Args.Append(args), extra);
                         toolCalls[index] = acc;
                     }
                 }
@@ -125,17 +142,20 @@ namespace BandVault.Web.Services.Assistant
 
             var requests = toolCalls.Values
                 .Where(c => !string.IsNullOrEmpty(c.Name))
-                .Select((c, i) => new ToolCallRequest(string.IsNullOrEmpty(c.Id) ? $"call_{i}" : c.Id, c.Name, c.Args.Length == 0 ? "{}" : c.Args.ToString()))
+                .Select((c, i) => new ToolCallRequest(string.IsNullOrEmpty(c.Id) ? $"call_{i}" : c.Id, c.Name, c.Args.Length == 0 ? "{}" : c.Args.ToString(), c.Extra))
                 .ToList();
             return new ChatTurnResult(text.ToString(), requests, finishReason);
         }
 
         private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max] + "…";
 
-        // Розбирає потік тексту на звичайний текст і блоки <think>...</think> (qwen3, deepseek-r1 тощо)
-        private class ThinkTagParser
+        // Розбирає потік тексту на звичайний текст і блоки міркувань:
+        // <think>...</think> (qwen3, deepseek-r1 в Ollama) та <thought>...</thought> (Gemini з include_thoughts)
+        internal class ThinkTagParser
         {
-            private bool _inThink;
+            private static readonly string[] OpenTags = { "<think>", "<thought>" };
+
+            private string? _closeTag; // не null - зараз усередині блоку міркувань
             private string _pending = "";
 
             public IEnumerable<(bool IsThinking, string Text)> Feed(string chunk)
@@ -145,22 +165,33 @@ namespace BandVault.Web.Services.Assistant
                 var result = new List<(bool, string)>();
                 while (buffer.Length > 0)
                 {
-                    var tag = _inThink ? "</think>" : "<think>";
-                    int idx = buffer.IndexOf(tag, StringComparison.Ordinal);
+                    var (idx, tag) = _closeTag != null
+                        ? (buffer.IndexOf(_closeTag, StringComparison.Ordinal), _closeTag)
+                        : FindFirstOpenTag(buffer);
                     if (idx >= 0)
                     {
-                        if (idx > 0) result.Add((_inThink, buffer[..idx]));
+                        if (idx > 0) result.Add((_closeTag != null, buffer[..idx]));
                         buffer = buffer[(idx + tag.Length)..];
-                        _inThink = !_inThink;
+                        _closeTag = _closeTag != null ? null : "</" + tag[1..];
                         continue;
                     }
                     // Тег міг розірватися між фрагментами - залишаємо можливий початок тегу на потім
-                    int keep = PartialTagSuffix(buffer, tag);
-                    if (buffer.Length - keep > 0) result.Add((_inThink, buffer[..^keep]));
+                    int keep = _closeTag != null ? PartialTagSuffix(buffer, _closeTag) : OpenTags.Max(t => PartialTagSuffix(buffer, t));
+                    if (buffer.Length - keep > 0) result.Add((_closeTag != null, buffer[..^keep]));
                     _pending = buffer[^keep..];
                     break;
                 }
                 return result.Where(r => r.Item2.Length > 0);
+            }
+
+            private static (int Index, string Tag) FindFirstOpenTag(string buffer)
+            {
+                var found = OpenTags
+                    .Select(t => (Index: buffer.IndexOf(t, StringComparison.Ordinal), Tag: t))
+                    .Where(x => x.Index >= 0)
+                    .OrderBy(x => x.Index)
+                    .FirstOrDefault();
+                return found.Tag == null ? (-1, "") : found;
             }
 
             private static int PartialTagSuffix(string s, string tag)

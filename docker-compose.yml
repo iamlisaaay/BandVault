@@ -21,9 +21,9 @@ services:
       - Storage__Provider=Blob
       - ConnectionStrings__AzureBlobStorage=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
       - Storage__PublicBaseUrl=http://localhost:10000/devstoreaccount1
-      # C21: безкоштовна модель. За замовчуванням - Ollama з сервісу нижче (docker compose --profile ai up -d)
-      - Assistant__BaseUrl=${ASSISTANT_BASE_URL:-http://ollama:11434/v1}
-      - Assistant__Model=${ASSISTANT_MODEL:-qwen3:4b}
+      # C21: безкоштовний Gemini (ключ ASSISTANT_API_KEY у .env). Для локальної Ollama: ASSISTANT_BASE_URL=http://ollama:11434/v1 і --profile ai
+      - Assistant__BaseUrl=${ASSISTANT_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}
+      - Assistant__Model=${ASSISTANT_MODEL:-gemini-3.1-flash-lite-preview}
       - Assistant__ApiKey=${ASSISTANT_API_KEY:-}
     depends_on:
       db:

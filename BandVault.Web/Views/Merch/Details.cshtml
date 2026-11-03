@@ -76,7 +76,7 @@
 
                     @if (Model.StockQuantity > 0)
                     {
-                        <form asp-controller="Cart" asp-action="AddToCart" method="post" class="mb-4" data-turbo="false">
+                        <form asp-controller="Cart" asp-action="AddToCart" method="post" class="mb-4">
                             <input type="hidden" name="merchId" value="@Model.Id" />
                             <div class="d-flex align-items-center gap-3">
                                 <input type="number" name="quantity" value="1" min="1" max="@Model.StockQuantity" class="form-control bg-dark text-white border-secondary rounded-0 text-center fw-bold py-2" style="width: 90px;" />
@@ -96,7 +96,7 @@
                     @if (User.HasClaim("IsAdmin", "true"))
                     {
                         <div class="d-flex gap-3 mt-auto pt-4 border-top border-secondary">
-                            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-light rounded-0 text-uppercase fw-bold px-4" style="letter-spacing: 1px;" data-turbo="false">
+                            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-light rounded-0 text-uppercase fw-bold px-4" style="letter-spacing: 1px;">
                                 Редагувати
                             </a>
                             <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger rounded-0 text-uppercase border-secondary px-4" style="letter-spacing: 1px;">

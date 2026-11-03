@@ -248,13 +248,14 @@
 
 // C12: чернетку поста прибираємо, лише коли сервер прийняв пост і перенаправив зі сторінки редактора.
 // Якщо збереження не вдалося (помилка, відмова в доступі), чернетка в localStorage зберігається.
-(function () {
+// site.js завантажується один раз (у <head>), тож перевіряємо на кожному Turbo-переході
+document.addEventListener('turbo:load', () => {
     const key = sessionStorage.getItem('bandvault_pending_draft_clear');
     if (key && /^\/Posts\/?$/i.test(location.pathname)) { // після успіху сервер веде на стрічку /Posts
         localStorage.removeItem(key);
         sessionStorage.removeItem('bandvault_pending_draft_clear');
     }
-})();
+});
 
 //запуск треків
 

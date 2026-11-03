@@ -1,4 +1,4 @@
-// =====================================================================
+﻿// =====================================================================
 // БЛОКОВИЙ РЕДАКТОР ПОСТІВ (C12 + F3) зі спільним редагуванням (C13 + C14)
 //  - блоки (текст EasyMDE / медіа), drag-n-drop сортування (SortableJS)
 //  - автозбереження чернетки в localStorage
@@ -319,7 +319,8 @@
         // Чернетку видаляємо лише після успішного збереження (див. site.js: сторінка, куди веде редірект)
         sessionStorage.setItem('bandvault_pending_draft_clear', config.storageKey);
         if (connection) connection.stop();
-        form.submit();
+        // requestSubmit: форму відправляє Turbo без перезавантаження - музика в плеєрі не перериватиметься
+        form.requestSubmit();
     }
 
     // ---------- Ініціалізація ----------
@@ -368,4 +369,7 @@
 
     loadInitial();
     startCollaboration();
+
+    // Turbo-перехід на іншу сторінку: закриваємо з'єднання синхронізації цього документа
+    document.addEventListener('turbo:before-render', () => { if (connection) connection.stop(); }, { once: true });
 })();

@@ -16,7 +16,7 @@
 
     <div class="row g-5">
         <div class="col-md-7">
-            <form asp-action="PlaceOrder" method="post" id="orderForm" data-turbo="false">
+            <form asp-action="PlaceOrder" method="post" id="orderForm">
                 @Html.AntiForgeryToken()
 
                 <h5 class="text-secondary meta-text mb-4">1. КОНТАКТНІ ДАНІ ОТРИМУВАЧА</h5>
@@ -92,10 +92,10 @@
 </div>
 
 @section Scripts {
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
+    // Ізольована область: при повторному Turbo-переході на сторінку const не конфліктують
+    (function () {
         const map = L.map('map').setView([50.4501, 30.5234], 11);
 
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -199,7 +199,9 @@
             } catch { }
 
             coordsPicked = true;
-            this.submit();
+            // requestSubmit (а не submit) - форму відправляє Turbo, тож плеєр не зупиняється
+            this.requestSubmit();
         });
+    })();
     </script>
 }

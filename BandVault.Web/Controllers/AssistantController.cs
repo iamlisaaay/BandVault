@@ -79,6 +79,12 @@ namespace BandVault.Web.Controllers
                 return;
             }
 
+            if (_options.IsGemini && string.IsNullOrWhiteSpace(_options.ApiKey))
+            {
+                await SendEventAsync("error", new { message = "Не задано ключ Gemini. Отримайте безкоштовний ключ на aistudio.google.com/apikey і виконайте: dotnet user-secrets set \"Assistant:ApiKey\" \"<ключ>\" --project BandVault.Web" }, ct);
+                return;
+            }
+
             var messages = new JsonArray { new JsonObject { ["role"] = "system", ["content"] = SystemPrompt } };
             foreach (var turn in history)
             {
@@ -109,11 +115,17 @@ namespace BandVault.Web.Controllers
                     {
                         ["role"] = "assistant",
                         ["content"] = result.Text,
-                        ["tool_calls"] = new JsonArray(result.ToolCalls.Select(c => (JsonNode)new JsonObject
+                        ["tool_calls"] = new JsonArray(result.ToolCalls.Select(c =>
                         {
-                            ["id"] = c.Id,
-                            ["type"] = "function",
-                            ["function"] = new JsonObject { ["name"] = c.Name, ["arguments"] = c.ArgumentsJson }
+                            var call = new JsonObject
+                            {
+                                ["id"] = c.Id,
+                                ["type"] = "function",
+                                ["function"] = new JsonObject { ["name"] = c.Name, ["arguments"] = c.ArgumentsJson }
+                            };
+                            // Gemini 3 вимагає повернути thought_signature, інакше наступний запит отримує 400
+                            if (c.Extra != null) call["extra_content"] = c.Extra.DeepClone();
+                            return (JsonNode)call;
                         }).ToArray())
                     });
 

@@ -54,7 +54,7 @@ namespace BandVault.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> ExternalLoginCallback(string returnUrl = "/")
         {
-            var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            var result = await HttpContext.AuthenticateAsync(Program.ExternalScheme);
 
             if (!result.Succeeded || result.Principal == null)
             {
@@ -66,6 +66,8 @@ namespace BandVault.Web.Controllers
             var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
             var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
             var avatar = claims.FirstOrDefault(c => c.Type == "urn:google:picture")?.Value;
+            // Тимчасова cookie більше не потрібна - далі працює основна
+            await HttpContext.SignOutAsync(Program.ExternalScheme);
 
             if (string.IsNullOrEmpty(email))
             {

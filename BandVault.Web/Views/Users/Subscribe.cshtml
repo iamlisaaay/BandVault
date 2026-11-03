@@ -1,4 +1,4 @@
-@model BandVault.Web.Models.SubscriptionTier
+﻿@model BandVault.Web.Models.SubscriptionTier
 @{
     ViewData["Title"] = "Підписка " + Model.Name;
 }
@@ -26,7 +26,7 @@
             <div class="alert bg-dark border-danger text-danger rounded-0 meta-text">@error</div>
         }
 
-        <form asp-action="ConfirmSubscribe" method="post" data-turbo="false">
+        <form asp-action="ConfirmSubscribe" method="post">
             <input type="hidden" name="id" value="@Model.Id" />
             <div class="form-check mb-4">
                 <input class="form-check-input bg-dark border-secondary rounded-0" type="checkbox" name="acceptTerms" value="true" id="acceptTerms">

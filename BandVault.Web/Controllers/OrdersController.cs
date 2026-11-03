@@ -170,7 +170,18 @@ namespace BandVault.Web.Controllers
             await _orderQueue.PublishAsync(new OrderPlacedMessage(order.Id, order.OrderDate));
             await _catalog.MerchChangedAsync();
 
-            return View("Success", order.Id);
+            // Post/Redirect/Get: Turbo відправляє форму без перезавантаження (плеєр грає далі),
+            // а оновлення сторінки успіху не створює повторне замовлення
+            return RedirectToAction(nameof(Success), new { id = order.Id });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Success(int id)
+        {
+            var order = await _context.Orders.Include(o => o.User).FirstOrDefaultAsync(o => o.Id == id);
+            if (order == null) return NotFound();
+            if (order.User?.Email != User.Identity?.Name && !User.HasClaim("IsAdmin", "true")) return Forbid();
+            return View(order.Id);
         }
 
         // 3. ІНТЕРАКТИВНА МАПА ЗАМОВЛЕНЬ З ФІЛЬТРАЦІЄЮ ТА ДИНАМІКОЮ (ЗАДАЧА C8)

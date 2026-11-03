@@ -40,10 +40,22 @@ docker compose up -d --build
 Секрети (не комітити!):
 
 ```bash
-dotnet user-secrets set "Anthropic:ApiKey" "<ключ>" --project BandVault.Web
+dotnet user-secrets set "Authentication:Google:ClientId" "<client id>" --project BandVault.Web
+dotnet user-secrets set "Authentication:Google:ClientSecret" "<client secret>" --project BandVault.Web
 dotnet user-secrets set "TelegramBot:Token" "<новий токен>" --project BandVault.Web
 dotnet user-secrets set "Api:Key" "<довгий випадковий ключ>" --project BandVault.Web
 ```
+
+## C16 — вхід через Google (безкоштовно)
+
+Вхід у застосунок — лише через Google OAuth2 (входу за email без пароля немає). Ключі безкоштовні:
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → створити проєкт → **APIs & Services → OAuth consent screen**: тип *External*, додати свій email у *Test users*.
+2. **Credentials → Create credentials → OAuth client ID** → тип *Web application*.
+3. *Authorized redirect URIs*: `https://localhost:7219/signin-google` і `http://localhost:5088/signin-google` (для Render — `https://<ваш-сервіс>.onrender.com/signin-google`).
+4. Скопіювати Client ID і Client secret у user-secrets (команди вище).
+
+Перший вхід автоматично створює акаунт; адміністратором стає email з `AdminSettings:SuperAdminEmail`.
 
 ---
 
@@ -98,7 +110,29 @@ GitHub Copilot у VS Code (`.vscode/mcp.json`):
 
 ## C21 — ШІ-асистент
 
-Модель `claude-opus-5-5` (адаптивне мислення, короткі підсумки думок). Увімкнено серверний fallback: якщо класифікатори безпеки відхилять запит, сервер сам повторить його на резервній моделі. Події SSE: `thinking`, `tool_call`, `tool_result`, `text`, `done`, `error`. Додавати товари через асистента може лише адміністратор. Потрібен ключ `Anthropic:ApiKey` (user-secrets) або змінна `ANTHROPIC_API_KEY`.
+Асистент працює через стандартний OpenAI-сумісний протокол Chat Completions (стрімінг + виклик інструментів), тож підходить **будь-який безкоштовний провайдер** — змінюються лише налаштування `Assistant:BaseUrl`, `Assistant:Model`, `Assistant:ApiKey`. Події SSE: `thinking`, `tool_call`, `tool_result`, `text`, `done`, `error`. Додавати товари через асистента може лише адміністратор.
+
+| Варіант | Ключ | Налаштування |
+|---|---|---|
+| **Ollama** (за замовчуванням) — локально, офлайн | не потрібен | `BaseUrl = http://localhost:11434/v1`, `Model = qwen3:4b` |
+| **Google Gemini** — безкоштовний ліміт | [aistudio.google.com](https://aistudio.google.com/apikey) | `BaseUrl = https://generativelanguage.googleapis.com/v1beta/openai`, `Model = gemini-2.5-flash` |
+| **Groq** — безкоштовний ліміт | [console.groq.com](https://console.groq.com/keys) | `BaseUrl = https://api.groq.com/openai/v1`, `Model = qwen/qwen3-32b` |
+
+Ollama на Windows: встановити з [ollama.com/download](https://ollama.com/download), потім:
+
+```bash
+ollama pull qwen3:4b
+```
+
+Модель ~2.6 ГБ, працює на звичайному ноутбуці (8 ГБ RAM). Qwen3 показує свої «думки» (`<think>`) — вони відображаються в чаті як окремий блок. У Docker: `docker compose --profile ai up -d`, потім `docker exec bandvault_ollama ollama pull qwen3:4b`.
+
+Gemini (зручно для хмари, де Ollama не запустити):
+
+```bash
+dotnet user-secrets set "Assistant:BaseUrl" "https://generativelanguage.googleapis.com/v1beta/openai" --project BandVault.Web
+dotnet user-secrets set "Assistant:Model" "gemini-2.5-flash" --project BandVault.Web
+dotnet user-secrets set "Assistant:ApiKey" "<ключ з AI Studio>" --project BandVault.Web
+```
 
 ## B7 — Azure Functions
 
@@ -148,14 +182,14 @@ dotnet test BandVault.E2E
 | Два «пристрої»: синхронізація тексту і підсвітка блоку | C13, C14 |
 | Панель візуалізатора: пресет, стиль, колір, збереження після перезавантаження | F6, C15 |
 
-**Оцінка покриття:** E2E проходять 10 із 13 ключових користувацьких потоків (77%): каталог, автокомпліт, доступи, замовлення, редактор, синхронізація, залишки наживо. Не покриті: вхід через Google (зовнішній провайдер, у тестах замінено DEV LOGIN), стіна автографів (Canvas), ШІ-асистент (потребує платного API), мапа адміна. Покриття коду збирається через `--collect:"XPlat Code Coverage"` (coverlet) і публікується в артефактах CI.
+**Оцінка покриття:** E2E проходять 12 із 14 ключових користувацьких потоків (86%): каталог, автокомпліт, доступи, сторінка входу, замовлення, редактор, синхронізація, залишки наживо, візуалізатор, ШІ-асистент (з імітацією OpenAI-сумісного провайдера: думки, виклик інструменту, відповідь). Сам Google OAuth у тестах замінено маршрутом, який існує лише в тестовому сервері й викликає той самий `UserSignInService`. Не покриті: стіна автографів (Canvas), мапа адміна. Покриття коду збирається через `--collect:"XPlat Code Coverage"` (coverlet) і публікується в артефактах CI.
 
 ---
 
 ## C3 / C2 — CI/CD і хмара
 
 1. Render → **New → Blueprint** → репозиторій `iamlisaaay/BandVault` → застосувати `render.yaml` (створить PostgreSQL і веб-сервіс).
-2. У Render задати секрети (Google, Telegram, Azure Blob, `ANTHROPIC_API_KEY`); у налаштуваннях сервісу скопіювати **Deploy Hook URL**.
+2. У Render задати секрети (Google, Telegram, Azure Blob, `Assistant__ApiKey` — безкоштовний ключ Gemini); у налаштуваннях сервісу скопіювати **Deploy Hook URL**.
 3. GitHub → Settings → Secrets → Actions: `RENDER_DEPLOY_HOOK_URL`, `RENDER_APP_URL` (адреса `https://….onrender.com`). Для Functions: `AZURE_FUNCTIONAPP_NAME`, `AZURE_FUNCTIONAPP_PUBLISH_PROFILE`.
 4. Після push у `main` (або поточну `master`) workflow збирає проєкт, проганяє тести, публікує образ і розгортає. Розгортання відбувається лише якщо тести зелені.
 

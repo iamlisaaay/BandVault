@@ -78,6 +78,8 @@ namespace BandVault.Web.Controllers
 
             // При помилці валідації повертаємо список
             ViewBag.Categories = new SelectList(_context.MerchCategories, "Id", "Name", merchItem.CategoryId);
+            // 422: Turbo показує форму з помилками без перезавантаження сторінки
+            Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
             return View(merchItem);
         }
 
@@ -146,6 +148,7 @@ namespace BandVault.Web.Controllers
             // ФІКС: Підвантажуємо категорію, якщо була помилка валідації, щоб Select2 не був порожнім
             merchItem.Category = await _context.MerchCategories.FindAsync(merchItem.CategoryId);
             ViewBag.Categories = new SelectList(_context.MerchCategories, "Id", "Name", merchItem.CategoryId);
+            Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
             return View(merchItem);
         }
 

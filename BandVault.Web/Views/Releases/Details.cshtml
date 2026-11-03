@@ -39,7 +39,7 @@
                                @if (track.RequiredTierLevel > (int)ViewBag.UserTier)
                                {
                                    <!-- B6: закритий трек - URL аудіо не віддаємо в розмітку -->
-                                   <a href="/?changeTier=1" class="btn-text-muted text-warning text-decoration-none" style="font-size: 0.8rem;" data-turbo="false">🔒 TIER @track.RequiredTierLevel+</a>
+                                   <a href="/?changeTier=1" class="btn-text-muted text-warning text-decoration-none" style="font-size: 0.8rem;">🔒 TIER @track.RequiredTierLevel+</a>
                                }
                                else
                                {

@@ -93,6 +93,8 @@ namespace BandVault.Web.Controllers
 
                 return RedirectToAction(nameof(Index));
             }
+            // 422: Turbo показує форму з помилками без перезавантаження сторінки
+            Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
             return View(siteSetting);
         }
 

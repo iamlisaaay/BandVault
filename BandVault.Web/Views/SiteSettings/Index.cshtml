@@ -70,10 +70,8 @@
 </div>
 
 @section Scripts {
-    <!-- Підключення Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", function () {
+        (function () { // виконується при кожному відкритті сторінки (і через Turbo)
             const ctx = document.getElementById('usersChart').getContext('2d');
             
             // Отримуємо дані з бекенду
@@ -133,6 +131,6 @@
                     }
                 }
             });
-        });
+        })();
     </script>
 }

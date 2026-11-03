@@ -79,10 +79,10 @@
 </div>
 
 @section Scripts {
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
+    // Ізольована область: при повторному Turbo-переході на сторінку const не конфліктують
+    (function () {
         const orders = @Html.Raw(ViewBag.OrdersJson ?? "[]");
         const map = L.map('adminMap').setView([49.0, 31.4], 6);
 
@@ -236,6 +236,9 @@
             }
         };
 
+        // Фільтри викликаються з onchange/oninput у розмітці
+        window.applyFilters = applyFilters;
         applyFilters();
+    })();
     </script>
 }

@@ -3,7 +3,7 @@
 
 <div class="container my-5 w-75">
     <h3 class="mb-4">Написати пост</h3>
-    <form asp-action="Create" data-turbo="false" id="postForm">
+    <form asp-action="Create" id="postForm">
         <div class="mb-3">
             <label asp-for="Title" class="form-label text-secondary meta-text">ЗАГОЛОВОК</label>
             <input asp-for="Title" class="form-control bg-dark text-white border-secondary rounded-0" required />
@@ -46,10 +46,6 @@
 </div>
 
 @section Scripts {
-    <!-- Підключаємо і SortableJS, і EasyMDE -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/easymde@2.18.0/dist/easymde.min.css">
-    <script src="https://unpkg.com/easymde@2.18.0/dist/easymde.min.js"></script>
 
     <style>
         .block-item {

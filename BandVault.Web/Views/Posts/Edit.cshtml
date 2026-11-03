@@ -7,7 +7,7 @@
         <a asp-action="Index" class="btn btn-sm btn-outline-secondary rounded-0">&larr; Назад до стрічки</a>
     </div>
 
-    <form asp-action="Edit" method="post" data-turbo="false" id="postForm">
+    <form asp-action="Edit" method="post" id="postForm">
         <input type="hidden" asp-for="Id" />
 
         <div class="mb-3">
@@ -52,9 +52,6 @@
 </div>
 
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/easymde@2.18.0/dist/easymde.min.css">
-    <script src="https://unpkg.com/easymde@2.18.0/dist/easymde.min.js"></script>
 
     <style>
         .block-item {

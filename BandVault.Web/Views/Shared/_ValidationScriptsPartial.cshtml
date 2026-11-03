@@ -1,2 +1,9 @@
-﻿<script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
-<script src="~/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js"></script>
+﻿@* jquery-validation підключено глобально в _Layout. Після Turbo-переходу нову форму треба розібрати вручну *@
+<script>
+    (function () {
+        if (window.jQuery && $.validator && $.validator.unobtrusive) {
+            $('form').removeData('validator').removeData('unobtrusiveValidation');
+            $.validator.unobtrusive.parse(document);
+        }
+    })();
+</script>

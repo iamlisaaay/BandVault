@@ -92,6 +92,8 @@ namespace BandVault.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
             ViewBag.Genres = new SelectList(_context.Genres, "Id", "Name", release.GenreId);
+            // 422: Turbo показує форму з помилками без перезавантаження сторінки
+            Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
             return View(release);
         }
 
@@ -139,7 +141,7 @@ namespace BandVault.Web.Controllers
                     }
 
                     await _context.SaveChangesAsync();
-                await _catalog.ReleasesChangedAsync();
+                    await _catalog.ReleasesChangedAsync();
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -149,6 +151,7 @@ namespace BandVault.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
             ViewBag.Genres = new SelectList(_context.Genres, "Id", "Name", release.GenreId);
+            Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
             return View(release);
         }
 

@@ -12,9 +12,16 @@ namespace BandVault.Web
 {
     public class Program
     {
+        // Cookie-схема для проміжного результату входу через Google
+        public const string ExternalScheme = "External";
+
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+
+            // Локальні секрети (ключі Google, Gemini, Telegram) - файл є лише на вашому комп'ютері:
+            // він у .gitignore та .dockerignore, тож не потрапляє ні на GitHub, ні в Docker-образ
+            builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
             // C2: хмарні платформи (Render, Railway, Heroku) віддають PostgreSQL як DATABASE_URL у форматі URI
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -34,6 +41,13 @@ namespace BandVault.Web
                 // C16: права з cookie звіряються з БД раз на 5 хв - зняті права адміна перестають діяти без чекання кінця сесії
                 options.Events.OnValidatePrincipal = ValidatePrincipalAsync;
             })
+            // Тимчасова cookie для відповіді Google: без OnValidatePrincipal, бо користувача в БД ще може не бути,
+            // а Name у Google - це ім'я, не email. Основну cookie створює UserSignInService у ExternalLoginCallback
+            .AddCookie(ExternalScheme, options =>
+            {
+                options.Cookie.Name = ".BandVault.External";
+                options.ExpireTimeSpan = TimeSpan.FromMinutes(10);
+            })
             .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyAuthenticationHandler.SchemeName, null)
             .AddGoogle(GoogleDefaults.AuthenticationScheme, googleOptions =>
             {
@@ -42,7 +56,7 @@ namespace BandVault.Web
 
                 googleOptions.ClientId = string.IsNullOrWhiteSpace(clientId) ? "DUMMY_CLIENT_ID" : clientId;
                 googleOptions.ClientSecret = string.IsNullOrWhiteSpace(clientSecret) ? "DUMMY_CLIENT_SECRET" : clientSecret;
-                googleOptions.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                googleOptions.SignInScheme = ExternalScheme;
                 googleOptions.ClaimActions.MapJsonKey("urn:google:picture", "picture");
             });
 
@@ -144,6 +158,12 @@ namespace BandVault.Web
             });
 
             var app = builder.Build();
+
+            // Діагностика при старті: видно, який провайдер ШІ підхопився (ключ не виводимо)
+            app.Logger.LogInformation("ШІ-асистент: модель {Model} через {BaseUrl}, ключ {KeyState}; середовище {Environment}",
+                assistantOptions.Model, assistantOptions.BaseUrl,
+                string.IsNullOrWhiteSpace(assistantOptions.ApiKey) ? "не задано" : "задано",
+                app.Environment.EnvironmentName);
 
             app.UseForwardedHeaders();
 

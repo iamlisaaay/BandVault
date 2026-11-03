@@ -345,17 +345,8 @@
 
 @section Scripts {
     <script>
-        document.addEventListener("turbo:load", function() {
-            if (new URLSearchParams(window.location.search).get('changeTier') === '1') {
-                var modalElement = document.getElementById('tierModal');
-                if (modalElement) {
-                    var tierModal = new bootstrap.Modal(modalElement);
-                    tierModal.show();
-                }
-            }
-        });
-
-        document.addEventListener("DOMContentLoaded", function() {
+        // Скрипт виконується при кожному відкритті головної (і повному, і через Turbo)
+        (function () {
             if (new URLSearchParams(window.location.search).get('changeTier') === '1') {
                 var modalElement = document.getElementById('tierModal');
                 if (modalElement) {
@@ -365,8 +356,10 @@
             }
 
             // ПЕРЕХОПЛЕННЯ СИГНАЛУ НА ДОДАВАННЯ ПОСТА БЕЗ ПЕРЕЗАВАНТАЖЕННЯ (SignalR)
-            const currentUserTier = @userTier;
-            const isAuth = @isAuth.ToString().ToLower();
+            // Дані користувача оновлюємо при кожному відкритті, а обробник реєструємо лише один раз
+            window.homeFeedContext = { tier: @userTier, isAuth: @isAuth.ToString().ToLower() };
+            if (window.homeFeedHandlerRegistered) return;
+            window.homeFeedHandlerRegistered = true;
 
             // Проста функція для екранування символів (захист від XSS)
             const escapeHTML = str => str.replace(/[&<>'"]/g, 
@@ -383,6 +376,8 @@
                 if (window.feedHubConnection) {
                     clearInterval(intervalId);
                     window.feedHubConnection.on("ReceiveNewPost", function (post) {
+                        const currentUserTier = window.homeFeedContext.tier;
+                        const isAuth = window.homeFeedContext.isAuth;
                         const container = document.getElementById('feedContainer');
                         if (container) {
                             
@@ -440,6 +435,6 @@
                     });
                 }
             }, 500);
-        });
+        })();
     </script>
 }

@@ -8,7 +8,7 @@
         <h3 class="section-title border-0 mb-0 pb-0">Каталог мерчу</h3>
         @if (User.HasClaim("IsAdmin", "true"))
         {
-            <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold" style="letter-spacing: 1px;" data-turbo="false">+ Додати мерч</a>
+            <a asp-action="Create" class="btn btn-sm btn-light text-uppercase fw-bold" style="letter-spacing: 1px;">+ Додати мерч</a>
         }
     </div>
 
@@ -72,7 +72,7 @@
                             </a>
                             @if (item.StockQuantity > 0)
                             {
-                                <form asp-controller="Cart" asp-action="AddToCart" method="post" data-turbo="false">
+                                <form asp-controller="Cart" asp-action="AddToCart" method="post">
                                     <input type="hidden" name="merchId" value="@item.Id" />
                                     <input type="hidden" name="quantity" value="1" />
                                     <button type="submit" class="btn btn-warning text-dark fw-bold rounded-0 px-3" style="font-size: 0.8rem;" title="Додати у кошик">
@@ -85,7 +85,7 @@
                         @if (User.HasClaim("IsAdmin", "true"))
                         {
                             <div class="d-flex gap-2">
-                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary w-50 rounded-0" data-turbo="false">Ред.</a>
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary w-50 rounded-0">Ред.</a>
                                 <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger w-50 rounded-0 border-secondary text-secondary">Вид.</a>
                             </div>
                         }

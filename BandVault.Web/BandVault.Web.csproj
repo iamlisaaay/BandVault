@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="BandVault.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Azure.Storage.Blobs" Version="12.30.1" />
     <PackageReference Include="HtmlSanitizer" Version="10.0.1120" />
     <PackageReference Include="Lucene.Net" Version="4.8.0-beta00018" />

@@ -39,7 +39,8 @@
     @{
         var gaId = Config["GoogleAnalytics:MeasurementId"];
     }
-    @if (!string.IsNullOrEmpty(gaId) && gaId != "G-9N1J26JPT9")
+    @* GA підключається, коли в appsettings.json задано справжній ID (не заглушку G-XXXXXXXXXX) *@
+    @if (!string.IsNullOrEmpty(gaId) && gaId != "G-XXXXXXXXXX")
     {
         <script async src="https://www.googletagmanager.com/gtag/js?id=@gaId"></script>
         <script>
@@ -55,8 +56,57 @@
     <script type="module" src="https://unpkg.com/@@hotwired/turbo@8.0.4/dist/turbo.es2017-esm.js"></script>
 
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/easymde@2.18.0/dist/easymde.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/BandVault.Web.styles.css" asp-append-version="true" />
+
+    <!--
+        Усі бібліотеки - в <head>: Turbo виконує їх лише раз, а переходи між сторінками
+        відбуваються без перезавантаження, тож аудіо-плеєр (data-turbo-permanent) грає без зупинки.
+        Скрипти сторінок (секція Scripts) запускаються на кожному переході й беруть бібліотеки звідси.
+    -->
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.12/signalr.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    <script src="https://unpkg.com/easymde@2.18.0/dist/easymde.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        // C11: глобальне сповіщення про новий пост (одне з'єднання на всю сесію)
+        function initSignalR() {
+            if (!window.feedHubConnection) {
+                window.feedHubConnection = new signalR.HubConnectionBuilder()
+                    .withUrl("/feedHub")
+                    .withAutomaticReconnect()
+                    .build();
+
+                window.feedHubConnection.on("ReceiveNewPost", function (post) {
+                    const alertEl = document.getElementById('globalPostAlert');
+                    const titleEl = document.getElementById('globalPostTitle');
+
+                    if (alertEl && titleEl) {
+                        titleEl.textContent = post.title;
+                        alertEl.classList.remove('d-none');
+                        alertEl.style.animation = "slideDownStrict 0.4s ease-out";
+                    }
+
+                    const localAlert = document.getElementById('newPostsAlert');
+                    if (localAlert) localAlert.classList.remove('d-none');
+                });
+
+                window.feedHubConnection.start().catch(function (err) { console.error(err); });
+            }
+        }
+
+        document.addEventListener("turbo:load", initSignalR);
+    </script>
 </head>
 <body class="bg-dark text-light">
     @{
@@ -114,7 +164,7 @@
                             <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Merch" asp-action="Index">Мерч</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Merch" asp-action="Live" data-turbo="false">Наживо</a>
+                            <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Merch" asp-action="Live">Наживо</a>
                         </li>
 
                         @if (User.Identity != null && User.Identity.IsAuthenticated)
@@ -126,10 +176,10 @@
                                 <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Posts" asp-action="Index">Стрічка</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Board" asp-action="Index" data-turbo="false">Стіна</a>
+                                <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Board" asp-action="Index">Стіна</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Assistant" asp-action="Index" data-turbo="false">Асистент</a>
+                                <a class="nav-link text-white text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Assistant" asp-action="Index">Асистент</a>
                             </li>
                             @if (await FeatureFlags.IsEnabledAsync(BandVault.Web.Services.Features.Backstage))
                             {
@@ -142,16 +192,16 @@
                         @if (User.HasClaim("IsAdmin", "true"))
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-warning text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="SiteSettings" asp-action="Index" data-turbo="false">Settings</a>
+                                <a class="nav-link text-warning text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="SiteSettings" asp-action="Index">Settings</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link text-danger text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Orders" asp-action="AdminMap" data-turbo="false">Мапа</a>
+                                <a class="nav-link text-danger text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 1px;" asp-area="" asp-controller="Orders" asp-action="AdminMap">Мапа</a>
                             </li>
                         }
                     </ul>
 
                     <div class="d-flex align-items-center gap-3">
-                        <a asp-controller="Cart" asp-action="Index" class="btn btn-outline-warning btn-sm rounded-0 text-uppercase fw-bold d-flex align-items-center gap-2 px-3 py-2" style="letter-spacing: 1px;" data-turbo="false">
+                        <a asp-controller="Cart" asp-action="Index" class="btn btn-outline-warning btn-sm rounded-0 text-uppercase fw-bold d-flex align-items-center gap-2 px-3 py-2" style="letter-spacing: 1px;">
                             <span>Кошик</span>
                             @if (cartCount > 0)
                             {
@@ -283,11 +333,6 @@
         </div>
     </div>
 
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
-    <!-- SignalR підключається до скриптів сторінок: його використовують редактор постів, дошка та моніторинг залишків -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.12/signalr.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
 
     <!-- ГЛОБАЛЬНОЕ УВЕДОМЛЕНИЕ ПРО НОВЫЙ ПОСТ (СТРОГИЙ ДИЗАЙН БЕЗ СМАЙЛОВ) -->
@@ -315,34 +360,5 @@
             }
     </style>
 
-    <script>
-            function initSignalR() {
-                if (!window.feedHubConnection) {
-                    window.feedHubConnection = new signalR.HubConnectionBuilder()
-                        .withUrl("/feedHub")
-                        .withAutomaticReconnect()
-                        .build();
-
-                    window.feedHubConnection.on("ReceiveNewPost", function (post) {
-                        const alertEl = document.getElementById('globalPostAlert');
-                        const titleEl = document.getElementById('globalPostTitle');
-
-                        if (alertEl && titleEl) {
-                            titleEl.textContent = post.title;
-                            alertEl.classList.remove('d-none');
-                            alertEl.style.animation = "slideDownStrict 0.4s ease-out";
-                        }
-
-                        const localAlert = document.getElementById('newPostsAlert');
-                        if (localAlert) localAlert.classList.remove('d-none');
-                    });
-
-                    window.feedHubConnection.start().catch(function(err) { console.error(err); });
-                }
-            }
-
-            document.addEventListener("DOMContentLoaded", initSignalR);
-            document.addEventListener("turbo:load", initSignalR);
-    </script>
 </body>
 </html>

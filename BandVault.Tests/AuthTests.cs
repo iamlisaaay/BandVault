@@ -102,5 +102,16 @@ namespace BandVault.Tests
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
+
+        // Відповідь Google не повинна йти в основну cookie: її OnValidatePrincipal шукає користувача за email
+        // і відхиляв новий Google-principal ("Google не підтвердив вхід")
+        [Fact]
+        public void Google_SignsInToSeparateExternalCookie()
+        {
+            var google = _factory.Services.GetRequiredService<IOptionsMonitor<Microsoft.AspNetCore.Authentication.Google.GoogleOptions>>()
+                .Get(Microsoft.AspNetCore.Authentication.Google.GoogleDefaults.AuthenticationScheme);
+
+            Assert.Equal(BandVault.Web.Program.ExternalScheme, google.SignInScheme);
+        }
     }
 }
