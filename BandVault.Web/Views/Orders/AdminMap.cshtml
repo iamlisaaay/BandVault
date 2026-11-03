@@ -42,6 +42,14 @@
                 </div>
 
                 <div class="mb-2">
+                    <label class="form-label text-secondary meta-text mb-1">МІСТО</label>
+                    <!-- Список міст заповнюється з адрес замовлень -->
+                    <select id="cityFilter" class="form-select form-select-sm bg-dark text-white border-secondary rounded-0" onchange="applyFilters()">
+                        <option value="all">Усі міста</option>
+                    </select>
+                </div>
+
+                <div class="mb-2">
                     <label class="form-label text-secondary meta-text mb-1">СПОСІБ ОПЛАТИ</label>
                     <select id="paymentFilter" class="form-select form-select-sm bg-dark text-white border-secondary rounded-0" onchange="applyFilters()">
                         <option value="all">Усі способи оплати</option>
@@ -66,6 +74,8 @@
                     Скинути фільтри
                 </button>
             </div>
+
+            @Html.AntiForgeryToken()
 
             <!-- Динамічний список відфільтрованих замовлень -->
             <div id="ordersList" class="d-flex flex-column gap-2 pe-1" style="max-height: 42vh; overflow-y: auto;"></div>
@@ -92,6 +102,26 @@
         }).addTo(map);
 
         let markersMap = {};
+
+        // Екранування даних покупця перед вставкою в HTML
+        function esc(value) {
+            const div = document.createElement('div');
+            div.textContent = value == null ? '' : String(value);
+            return div.innerHTML;
+        }
+
+        // Місто - перша частина адреси до коми ("Київ, Солом'янська 38" -> "Київ")
+        function cityOf(order) {
+            return (order.address || '').split(',')[0].trim();
+        }
+
+        const citySelect = document.getElementById('cityFilter');
+        [...new Set(orders.map(cityOf).filter(Boolean))].sort().forEach(city => {
+            const option = document.createElement('option');
+            option.value = city;
+            option.textContent = city;
+            citySelect.appendChild(option);
+        });
 
         function getStatusColor(status) {
             if (status === 'Completed') return '#198754';

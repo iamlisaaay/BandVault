@@ -1,4 +1,3 @@
-using System.Net;
 
 namespace BandVault.Web.Services
 {
@@ -33,7 +32,9 @@ namespace BandVault.Web.Services
                     }));
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("Telegram відповів {Status}", response.StatusCode);
+                    // Тіло містить причину (наприклад, "can't parse entities") - без нього збій не діагностувати
+                    var body = await response.Content.ReadAsStringAsync();
+                    _logger.LogWarning("Telegram відповів {Status}: {Body}", response.StatusCode, body);
                 }
             }
             catch (Exception ex)
@@ -42,6 +43,11 @@ namespace BandVault.Web.Services
             }
         }
 
-        public static string Encode(string? text) => WebUtility.HtmlEncode(text ?? "");
+        // Telegram HTML вимагає екранувати лише &, < та >. WebUtility.HtmlEncode додатково перетворював
+        // апостроф у "Готівкою кур'єру" на &#39; - зайва сутність, яку не треба віддавати в Bot API
+        public static string Encode(string? text) => (text ?? "")
+            .Replace("&", "&amp;")
+            .Replace("<", "&lt;")
+            .Replace(">", "&gt;");
     }
 }

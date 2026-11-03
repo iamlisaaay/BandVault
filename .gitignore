@@ -128,6 +128,8 @@ ipch/
 
 # Visual Studio Trace Files
 *.e2e
+# ...але не папка E2E-тестів (Windows не розрізняє регістр, і *.e2e ховав BandVault.E2E)
+!BandVault.E2E/
 
 # TFS 2012 Local Workspace
 $tf/
@@ -489,3 +491,6 @@ $RECYCLE.BIN/
 
 # Локальні секрети (ключі Google, Gemini, Telegram) - лише на цьому комп'ютері
 **/appsettings.Local.json
+
+# Робочі нотатки до здачі - лише локально
+docs/
