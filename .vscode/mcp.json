@@ -1,5 +1,5 @@
 {
-  // C22: MCP-сервер BandVault для агента Copilot (режим Agent). Сайт має бути запущений (профіль http)
+  // C22: MCP-сервер BandVault для агента Copilot (режим Agent). 
   "servers": {
     "bandvault": {
       "type": "http",
