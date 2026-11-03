@@ -110,9 +110,14 @@
             return div.innerHTML;
         }
 
-        // Місто - перша частина адреси до коми ("Київ, Солом'янська 38" -> "Київ")
+        // Місто з адреси. Ручне введення: "Київ, Солом'янська 38" -> перша частина.
+        // Адреса з мапи (OpenStreetMap): "9, Тульчинська вулиця, ..., Київ, 04073, Україна" -> частина перед поштовим індексом
         function cityOf(order) {
-            return (order.address || '').split(',')[0].trim();
+            const parts = (order.address || '').split(',').map(p => p.trim()).filter(Boolean);
+            const zip = parts.findIndex(p => /^\d{5}$/.test(p));
+            if (zip > 0) return parts[zip - 1];
+            if (parts.length > 2 && /^(Україна|Ukraine)$/i.test(parts[parts.length - 1])) return parts[parts.length - 2];
+            return parts[0] || '';
         }
 
         const citySelect = document.getElementById('cityFilter');
