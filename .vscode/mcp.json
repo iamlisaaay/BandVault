@@ -1,0 +1,10 @@
+{
+  // C22: MCP-сервер BandVault для агента Copilot (режим Agent). Сайт має бути запущений (профіль http)
+  "servers": {
+    "bandvault": {
+      "type": "http",
+      "url": "http://localhost:5088/mcp",
+      "headers": { "X-Api-Key": "dev-bandvault-api-key" }
+    }
+  }
+}
